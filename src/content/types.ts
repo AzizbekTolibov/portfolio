@@ -1,0 +1,84 @@
+export type CaseStudyImage = {
+  src: string;
+  width: number;
+  height: number;
+  alt: string;
+};
+
+/**
+ * The content primitives a case study can be built from. Sections are a
+ * fixed sequence (see CASE_STUDY_SECTION_IDS); each holds an ordered list
+ * of these blocks — mix and match freely within a section.
+ */
+export type CaseStudyBlock =
+  | { type: "heading"; text: string }
+  | { type: "body"; text: string }
+  | { type: "pullQuote"; quote: string; attribution?: string }
+  | { type: "fullBleedImage"; image: CaseStudyImage; caption?: string }
+  | {
+      type: "imagePair";
+      images: [CaseStudyImage, CaseStudyImage];
+      caption?: string;
+    };
+
+export const CASE_STUDY_SECTION_IDS = [
+  "overview",
+  "problem",
+  "research",
+  "process",
+  "solution",
+  "outcome",
+] as const;
+
+export type CaseStudySectionId = (typeof CASE_STUDY_SECTION_IDS)[number];
+
+export type CaseStudySection = {
+  id: CaseStudySectionId;
+  heading: string;
+  blocks: CaseStudyBlock[];
+};
+
+export type CaseStudy = {
+  sections: CaseStudySection[];
+};
+
+export type Project = {
+  slug: string;
+  title: string;
+  role: string;
+  year: number;
+  tags: string[];
+  cover: CaseStudyImage;
+  shortDescription: string;
+  caseStudy: CaseStudy;
+  /** Shown in Home's Selected Work section. */
+  featured?: boolean;
+};
+
+export type AboutContent = {
+  name: string;
+  role: string;
+  bio: string;
+  photo: string;
+};
+
+export type ContactContent = {
+  email: string;
+  socials: { label: string; url: string }[];
+  /** Placeholder path — add the real file at public/resume.pdf. */
+  resumeUrl: string;
+};
+
+export type SiteContent = {
+  name: string;
+  role: string;
+  tagline: string;
+  nav: { label: string; href: string }[];
+  location: { city: string; timeZone: string };
+};
+
+export type HomeContent = {
+  heroHeadline: string;
+  heroSubhead: string;
+  contactHeadline: string;
+};
