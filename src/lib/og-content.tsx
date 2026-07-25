@@ -73,6 +73,7 @@ export function ProjectOgImage({
     >
       <div
         style={{
+          display: "flex",
           fontSize: 28,
           color: GRAY_400,
           letterSpacing: 6,
