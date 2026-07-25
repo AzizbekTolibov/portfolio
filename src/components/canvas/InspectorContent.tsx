@@ -2,6 +2,7 @@ import { about, contact } from "@/content/about";
 import type { CanvasNode } from "@/content/canvas";
 import { site } from "@/content/site";
 import type { Project } from "@/content/types";
+import { PlaceholderText } from "@/lib/canvas/placeholder-text";
 import { ExternalLinkIcon } from "./icons";
 
 type SpatialNode = Extract<CanvasNode, { type: "frame" | "group" }>;
@@ -19,7 +20,7 @@ function PropertyRow({ label, value }: { label: string; value: string }) {
     <div className="flex items-baseline justify-between gap-3 px-4 py-1">
       <span className="text-off-white/50 shrink-0 text-[11px]">{label}</span>
       <span className="text-off-white/90 truncate text-right font-mono text-[11px]">
-        {value}
+        <PlaceholderText text={value} />
       </span>
     </div>
   );
@@ -49,9 +50,12 @@ function FileInfoPanel() {
         </div>
         <div className="text-off-white/60 text-[11px]">{about.role}</div>
       </div>
+      <p className="text-off-white/75 px-4 pb-3 text-[11px] leading-relaxed">
+        <PlaceholderText text={about.bioShort} />
+      </p>
       <div className="bg-off-white/10 mx-4 h-px" />
       <SectionHeading>Info</SectionHeading>
-      <PropertyRow label="Location" value={site.location.city} />
+      <PropertyRow label="Location" value={site.location.display} />
       <PropertyRow label="Status" value={about.availability} />
       <div className="bg-off-white/10 mx-4 my-3 h-px" />
       <SectionHeading>Links</SectionHeading>

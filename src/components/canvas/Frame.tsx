@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { CanvasNode } from "@/content/canvas";
 import { blurDataUrl } from "@/lib/canvas/blur";
+import { PlaceholderText } from "@/lib/canvas/placeholder-text";
 import type { LodBand } from "@/lib/canvas/types";
 
 type FrameProps = {
@@ -102,8 +103,42 @@ function FrameChildren({
                 height: child.height,
               }}
             >
-              {child.content.text}
+              <PlaceholderText text={child.content.text} />
             </p>
+          );
+        }
+        if (child.type === "property-groups") {
+          return (
+            <div
+              key={child.id}
+              className="absolute flex flex-col gap-4 overflow-hidden"
+              style={{
+                left: child.x - frame.x,
+                top: child.y - frame.y,
+                width: child.width,
+                height: child.height,
+              }}
+            >
+              {child.content.sections.map((section) => (
+                <div key={section.heading}>
+                  <div className="text-mono-caption mb-1.5 font-mono tracking-[0.08em] text-gray-500 uppercase">
+                    {section.heading}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    {section.groups.map((group) => (
+                      <div key={group.label} className="flex gap-4 py-0.5">
+                        <span className="w-[140px] shrink-0 font-mono text-[11px] text-gray-500">
+                          {group.label}
+                        </span>
+                        <span className="font-mono text-[11px] text-gray-800">
+                          <PlaceholderText text={group.items.join(" · ")} />
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           );
         }
         return null;

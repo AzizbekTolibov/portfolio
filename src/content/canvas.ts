@@ -2,7 +2,7 @@ import { about, contact } from "./about";
 import { home } from "./home";
 import { projects } from "./projects";
 import { site } from "./site";
-import type { CaseStudySectionId, Project } from "./types";
+import type { CaseStudySectionId, Project, PropertyGroup } from "./types";
 
 /**
  * The canvas's content AND spatial composition, in one place — every node
@@ -64,14 +64,25 @@ export type CanvasNode =
   | (BaseNode & { type: "group"; content?: { projectSlug?: string } })
   | (BaseNode & {
       type: "text";
-      content: { text: string; variant: TextVariant };
+      content: {
+        text: string;
+        variant: TextVariant;
+        /** Semantic-layer-only override — used when a frame's visible
+         * space forces a trimmed cut but the accessible/crawlable copy
+         * shouldn't be similarly constrained (e.g. the About bio). */
+        semanticText?: string;
+      };
     })
   | (BaseNode & {
       type: "image";
       content: { src: string; alt: string; blurColor: string };
     })
   | (BaseNode & { type: "sticky"; content: { text: string } })
-  | (BaseNode & { type: "comment"; content: CommentThread });
+  | (BaseNode & { type: "comment"; content: CommentThread })
+  | (BaseNode & {
+      type: "property-groups";
+      content: { sections: { heading: string; groups: PropertyGroup[] }[] };
+    });
 
 const featuredProjects = projects.filter((p) => p.featured);
 
@@ -142,10 +153,7 @@ const siteCover: CanvasNode[] = [
     y: 520,
     width: 1280,
     height: 40,
-    content: {
-      text: `${site.location.city} — ${site.location.timeZone}`,
-      variant: "caption",
-    },
+    content: { text: site.location.display, variant: "caption" },
   },
   {
     id: "cover-statement",
@@ -759,7 +767,11 @@ const aboutCluster: CanvasNode[] = [
     y: ABOUT_Y + 60,
     width: 1580,
     height: 480,
-    content: { text: about.bio, variant: "body" },
+    content: {
+      text: about.bioMedium,
+      variant: "body",
+      semanticText: about.bioLong,
+    },
   },
   {
     id: "about-skills",
@@ -773,15 +785,20 @@ const aboutCluster: CanvasNode[] = [
     content: { kind: "about-skills" },
   },
   {
-    id: "about-skills-text",
-    type: "text",
-    name: "Skills list",
+    id: "about-skills-properties",
+    type: "property-groups",
+    name: "Tools & skills",
     parentId: "about-skills",
     x: ABOUT_X + 1160,
     y: ABOUT_Y + 860,
     width: 1580,
     height: 480,
-    content: { text: about.skills.join("  ·  "), variant: "body" },
+    content: {
+      sections: [
+        { heading: "Tools", groups: about.tools },
+        { heading: "Skills", groups: about.skills },
+      ],
+    },
   },
 ];
 

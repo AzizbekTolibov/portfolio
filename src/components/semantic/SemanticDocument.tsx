@@ -35,7 +35,30 @@ function FrameContent({
           );
         }
         if (child.type === "text" && child.content.text) {
-          return <p key={child.id}>{child.content.text}</p>;
+          return (
+            <p key={child.id}>
+              {child.content.semanticText ?? child.content.text}
+            </p>
+          );
+        }
+        if (child.type === "property-groups") {
+          return (
+            <div key={child.id}>
+              {child.content.sections.map((section) => (
+                <div key={section.heading}>
+                  <h4>{section.heading}</h4>
+                  <dl>
+                    {section.groups.map((group) => (
+                      <div key={group.label}>
+                        <dt>{group.label}</dt>
+                        <dd>{group.items.join(", ")}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ))}
+            </div>
+          );
         }
         return null;
       })}

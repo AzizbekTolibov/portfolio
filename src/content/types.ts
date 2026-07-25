@@ -64,13 +64,25 @@ export type Project = {
   rationale: string[];
 };
 
+/** A labeled group of items — "Daily", "Regularly", etc. for tools, or
+ * "Practice", "Domains", etc. for skills — rendered as Figma inspector
+ * property rows (label left, mono value right) rather than bullet lists. */
+export type PropertyGroup = { label: string; items: string[] };
+
 export type AboutContent = {
   name: string;
   role: string;
-  bio: string;
+  /** Right panel, nothing selected. */
+  bioShort: string;
+  /** Canvas About frame — space-constrained, so this is the trimmed cut. */
+  bioMedium: string;
+  /** Semantic-layer-only (screen readers, crawlers, the /about deep link)
+   * — no frame-height constraint, so this is the full version. */
+  bioLong: string;
   photo: string;
   availability: string;
-  skills: string[];
+  tools: PropertyGroup[];
+  skills: PropertyGroup[];
 };
 
 export type ContactContent = {
@@ -85,7 +97,7 @@ export type SiteContent = {
   role: string;
   tagline: string;
   nav: { label: string; href: string }[];
-  location: { city: string; timeZone: string };
+  location: { display: string };
 };
 
 export type HomeContent = {
