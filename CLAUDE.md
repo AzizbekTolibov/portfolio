@@ -287,6 +287,56 @@ check there first before eyeballing values in the CSS/TS files.
   when it needs interactivity, animation hooks, or browser APIs (e.g. the
   Lenis scroll provider, Framer Motion components with hooks/gestures).
 
+## Performance & SEO
+
+- **Images** — every `<Image>` sets `priority` only on covers that are
+  genuinely above the fold for that specific grid's widest breakpoint
+  (`WorkIndexGrid` uses `i < 3` to match `lg:grid-cols-3`; `SelectedWork`
+  sets **no** priority at all, since that section sits below the
+  full-viewport Hero and is never actually above the fold). Everything
+  else is lazy by default (next/image's default). Don't just copy a
+  priority count between grids with different column counts — match it to
+  the layout.
+- **Fonts** — all three (`Fraunces`, `Geist`, `Geist Mono`) load via
+  `next/font/google` with explicit `display: "swap"`; preloading is
+  automatic (next/font's default).
+- **`<Intro>` is code-split** — `src/app/page.tsx` loads it via
+  `next/dynamic` with `ssr: false` (safe because Intro already renders
+  `null` until a client-only sessionStorage check resolves, so there was
+  no SSR content to lose). This keeps Intro's module out of Hero's
+  critical-path JS.
+- **Site URL** — `src/lib/site-url.ts` resolves the canonical URL for
+  `metadataBase`, the sitemap, robots.txt, and JSON-LD: explicit
+  `NEXT_PUBLIC_SITE_URL` → Vercel's auto-set `VERCEL_PROJECT_PRODUCTION_URL`
+  → `VERCEL_URL` → `localhost:3000`. Set `NEXT_PUBLIC_SITE_URL` once a
+  custom domain is connected so metadata stops pointing at the
+  `*.vercel.app` URL.
+- **Metadata** — the root layout sets a title **template**
+  (`%s — Azizbek Tolibov`), so any page just exports `title: "Work"` and
+  gets the full string composed automatically. Every real page has its own
+  `title` + `description`; `/styleguide` additionally sets
+  `robots: { index: false, follow: false }` since it's an internal
+  reference page, not public content — and is excluded from `sitemap.ts`
+  for the same reason.
+- **OG / Twitter images** are generated at request time via `next/og`'s
+  `ImageResponse`, not static files — `src/app/opengraph-image.tsx` +
+  `twitter-image.tsx` (site default) and
+  `src/app/work/[slug]/opengraph-image.tsx` (per-project, using
+  title/role/year). Shared visuals live in `src/lib/og-content.tsx`.
+  **Gotcha:** Satori (the renderer behind `ImageResponse`) requires an
+  **explicit** `display: "flex"` on any `<div>` with more than one child
+  node — including a div whose only children are plain text/expressions
+  like `{role} — {year}` (that's 3 child nodes: two expressions + the
+  dash). Omitting it doesn't error at build time, only at request time in
+  production (`next start`/deployed) — `next dev` and `tsc` won't catch
+  it. If you add a new OG image and it 500s only in production, check
+  this first.
+- **Icon** — `src/app/icon.tsx` (generated via `ImageResponse`, same
+  Satori rules apply) replaced the default Next.js scaffold favicon.
+- **JSON-LD** — a `Person` schema (name, jobTitle, url, email, `sameAs`
+  from `contact.socials`) is rendered as a `<script>` tag in the root
+  layout, site-wide.
+
 ## Stack
 
 - **Next.js** (App Router) + **TypeScript**
@@ -300,6 +350,20 @@ check there first before eyeballing values in the CSS/TS files.
 
 - `npm run dev` — start dev server
 - `npm run build` — production build
+- `npm run start` — serve the production build (use this, not `dev`, for
+  any real performance/Lighthouse check — dev mode is meaningfully slower)
 - `npm run lint` — ESLint
 - `npm run format` — Prettier write
 - `npm run format:check` — Prettier check (no writes)
+
+## Deployment
+
+Hosted on Vercel, connected to a GitHub repo (`main` branch = production).
+Local git identity is set **repo-locally** (not global) with a placeholder
+email — update it (`git config user.email "..."`) if you want your real
+email attached to commits before pushing.
+
+To point metadata at a custom domain once one is connected, set
+`NEXT_PUBLIC_SITE_URL` in Vercel's project environment variables (Settings
+→ Environment Variables) to the full URL (e.g. `https://azizbektolibov.com`)
+and redeploy — see `src/lib/site-url.ts`.
