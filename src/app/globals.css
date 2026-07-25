@@ -22,8 +22,28 @@
   --color-gray-800: #2c2a25;
   --color-gray-900: #1a1815;
 
-  --color-background: var(--color-off-white);
-  --color-foreground: var(--color-off-black);
+  /* Figma selection blue — used for the selection outline (canvas engine)
+     and reused as the site-wide focus ring color (see :focus-visible
+     below). Not part of the artboard-interior editorial palette. */
+  --color-selection: #0d99ff;
+  /* Figma comment purple — comment pins / annotations only. */
+  --color-comment: #9747ff;
+
+  /* Figma chrome tokens — the top bar / side panels' own surfaces, distinct
+     from the dark canvas backdrop (off-black) and from the light
+     artboard-interior palette below. */
+  --color-panel: #1e1e1e;
+  --color-surface: #2c2c2c;
+
+  /* The canvas is a dark Figma-chrome shell now, not an off-white page —
+     background/foreground point at off-black/off-white (swapped from the
+     old editorial-light default). This is unlayered CSS (see the `body {}`
+     rule below), so it wins over any bg- or text- Tailwind color utility
+     applied to <body> regardless of class order — keep this the single
+     source of truth for body's base colors rather than fighting it with
+     classes. */
+  --color-background: var(--color-off-black);
+  --color-foreground: var(--color-off-white);
 
   /* Type scale — display and h1/h2 are fluid (clamp) since oversized,
      responsive headlines are a core design principle. */
@@ -84,6 +104,8 @@
   --font-display: var(--font-display);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+  /* Handwritten-feel face — sticky notes on the canvas only. */
+  --font-hand: var(--font-hand);
 }
 
 body {
@@ -95,9 +117,10 @@ body {
 /* Consistent, on-brand keyboard-focus indicator for every interactive
    element site-wide. This is unlayered CSS, so it beats Tailwind's
    @layer-scoped utilities (including any `outline-none` on a given
-   element) regardless of class order — that's deliberate. */
+   element) regardless of class order — that's deliberate. Figma selection
+   blue, matching the canvas's own selection outline. */
 :focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-selection);
   outline-offset: 2px;
 }
 

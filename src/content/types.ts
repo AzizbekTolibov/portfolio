@@ -53,6 +53,15 @@ export type Project = {
   caseStudy: CaseStudy;
   /** Shown in Home's Selected Work section. */
   featured?: boolean;
+  /** Canvas right-panel inspector fields — repurposing Figma's property
+   * rows to show project metadata instead of CSS. */
+  team: string;
+  duration: string;
+  tools: string[];
+  platform: string;
+  /** 2-3 short lines on the key design decisions, shown in the inspector's
+   * "Rationale" section. */
+  rationale: string[];
 };
 
 export type AboutContent = {
@@ -60,6 +69,8 @@ export type AboutContent = {
   role: string;
   bio: string;
   photo: string;
+  availability: string;
+  skills: string[];
 };
 
 export type ContactContent = {

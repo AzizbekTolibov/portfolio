@@ -7,17 +7,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${siteUrl}/`, changeFrequency: "monthly", priority: 1 },
-    { url: `${siteUrl}/work`, changeFrequency: "monthly", priority: 0.9 },
-    { url: `${siteUrl}/about`, changeFrequency: "monthly", priority: 0.5 },
   ];
 
+  // /work/[slug] is the crawlable surface for every project — including
+  // the ones not visualized on the canvas (only `featured` projects get a
+  // cluster there; every project gets a case-study page here).
   const projectRoutes: MetadataRoute.Sitemap = projects.map((project) => ({
     url: `${siteUrl}/work/${project.slug}`,
     changeFrequency: "monthly",
     priority: 0.8,
   }));
 
-  // /styleguide is intentionally excluded — it's an internal reference
-  // page (also marked noindex in its own metadata).
   return [...staticRoutes, ...projectRoutes];
 }

@@ -217,6 +217,15 @@ export const projects: Project[] = [
       "A calmer way to track personal finances, rebuilt around clarity over dashboards.",
     caseStudy: auravestCaseStudy,
     featured: true,
+    team: "1 designer, 1 PM, 2 engineers",
+    duration: "8 weeks",
+    tools: ["Figma", "Figma Variables", "Maze"],
+    platform: "iOS, Android",
+    rationale: [
+      "Replaced the six-chart dashboard with one plain-language answer, since research showed people wanted reassurance, not analysis.",
+      "Kept detailed charts one tap away instead of removing them — opt-in depth beats forced simplicity.",
+      "Shipped the single-line summary pattern first; it's since spread to two other product areas.",
+    ],
   },
   {
     slug: "north-clinic",
@@ -234,6 +243,14 @@ export const projects: Project[] = [
       "Booking and records for a small clinic network, designed for patients who don't consider themselves 'good with apps.'",
     caseStudy: defaultCaseStudy("north-clinic", "North Clinic"),
     featured: true,
+    team: "1 designer, 1 researcher, 3 engineers",
+    duration: "12 weeks",
+    tools: ["Figma", "UserTesting", "Notion"],
+    platform: "Web, iOS",
+    rationale: [
+      "Designed the booking flow around phone-call mental models, since most patients had never booked anything online before.",
+      "Moved records behind a single 'My Visits' entry point instead of a tabbed dashboard, to reduce decision points for low-confidence users.",
+    ],
   },
   {
     slug: "fieldnote",
@@ -251,6 +268,14 @@ export const projects: Project[] = [
       "A quieter note-taking tool for field researchers, built around structure instead of folders.",
     caseStudy: defaultCaseStudy("fieldnote", "Fieldnote"),
     featured: true,
+    team: "1 designer, 2 engineers",
+    duration: "6 weeks",
+    tools: ["Figma", "Linear"],
+    platform: "Web, iPad",
+    rationale: [
+      "Replaced folders with tags and location/time metadata, since field researchers organize by context, not hierarchy.",
+      "Built offline-first capture as the default, not a fallback — connectivity in the field is the exception.",
+    ],
   },
   {
     slug: "loop-market",
@@ -268,6 +293,14 @@ export const projects: Project[] = [
       "A component system for a marketplace's storefronts, so small sellers ship pages that don't look templated.",
     caseStudy: defaultCaseStudy("loop-market", "Loop Market"),
     featured: true,
+    team: "1 designer, 1 design engineer",
+    duration: "10 weeks",
+    tools: ["Figma", "Figma Variables", "Storybook"],
+    platform: "Web",
+    rationale: [
+      "Built the system around configurable tokens, not fixed templates, so storefronts could look distinct while staying on-brand.",
+      "Prioritized a restrained default component set over flexibility — most sellers never touched the advanced options anyway.",
+    ],
   },
   {
     slug: "harbor-analytics",
@@ -284,6 +317,14 @@ export const projects: Project[] = [
     shortDescription:
       "Making a dense analytics product legible again, one chart at a time.",
     caseStudy: defaultCaseStudy("harbor-analytics", "Harbor Analytics"),
+    team: "1 designer, 1 PM, 4 engineers",
+    duration: "14 weeks",
+    tools: ["Figma", "Amplitude"],
+    platform: "Web",
+    rationale: [
+      "Redesigned charts around the one question each user role actually asks, instead of one dashboard for everyone.",
+      "Cut default chart count by half and moved the rest behind a customizable view, favoring legibility over completeness.",
+    ],
   },
   {
     slug: "kindred",
@@ -300,5 +341,13 @@ export const projects: Project[] = [
     shortDescription:
       "Brand and product design for a family-messaging app, from wordmark to empty states.",
     caseStudy: defaultCaseStudy("kindred", "Kindred"),
+    team: "1 designer, 2 engineers",
+    duration: "9 weeks",
+    tools: ["Figma", "Illustrator"],
+    platform: "iOS, Android",
+    rationale: [
+      "Designed the wordmark and UI together, not in sequence, so the brand voice showed up in empty states and error copy too.",
+      "Chose warm, hand-drawn illustration over stock iconography to make a messaging app for families feel less corporate.",
+    ],
   },
 ];

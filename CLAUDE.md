@@ -1,369 +1,279 @@
 # Portfolio — Azizbek Tolibov
 
-Personal portfolio for **Azizbek Tolibov**, a UI/UX designer.
+Personal portfolio for **Azizbek Tolibov**, a UI/UX designer. Built as a
+single **infinite Figma canvas** you pan and zoom across — not a page you
+scroll.
 
-## Concept
+## Concept — "The Figma File"
 
-A minimal editorial base, with a cinematic intro sequence, a warm narrative
-voice, and ONE interactive signature element (on the About page).
+The portfolio **is** a Figma file. You don't scroll a document; you pan and
+zoom across an infinite 2D canvas of frames. Every piece of content — the
+nameplate, each project cover, each case study, the bio, the contact card —
+is a **frame positioned in canvas space**. Navigation is spatial: you move
+the viewport, or you jump ("fly to") a frame. The metaphor is total, not
+decorative — it determines the entire information architecture and every
+navigation affordance.
 
-**Metaphor: "a quiet studio."** Calm, considered, uncluttered — a space that
-lets the work speak, with one moment of surprising craft.
+The design work is presented in the tool the design work was made in. That is
+the whole idea.
 
-## Design principles
+## The Hard Rule
 
-- **Restraint** — no decoration without purpose. Motion and detail are earned,
-  not default.
-- **Generous whitespace** — let sections breathe; don't crowd content.
-- **Oversized typography** — type is a primary design element, not just a
-  container for words.
-- **Subtle motion** — animation supports meaning (reveals, transitions), never
-  decoration for its own sake. Must respect `prefers-reduced-motion`.
-- **Fast load** — keep bundle size and asset weight lean; prefer CSS/transform
-  animations over heavy JS where possible.
-- **Accessible (WCAG AA)** — color contrast, keyboard navigation, semantic
-  HTML, and reduced-motion support are non-negotiable, not polish.
+**If a feature exists on a conventional portfolio, it does not exist here.**
 
-## Information architecture
+This is the governing constraint. Before adding anything, ask: "does a normal
+portfolio have this?" If yes, it is forbidden. Non-exhaustively, there is:
 
-| Route          | Purpose                                                            |
-| -------------- | ------------------------------------------------------------------ |
-| `/`            | Home: intro → kinetic hero → selected work → short about → contact |
-| `/work`        | Work index grid (built)                                            |
-| `/work/[slug]` | Case study template (built)                                        |
-| `/about`       | Bio + interactive signature element                                |
+- **no** navbar, hamburger menu, or link list
+- **no** hero section, "scroll to explore" cue, or vertical scroll at all
+- **no** work grid / gallery / card list
+- **no** about section or contact form
+- **no** footer, breadcrumbs, or page-to-page route transitions
+- **no** "sections" of any kind — a section is a page-document idea
 
-Home is built section-by-section; **intro, kinetic hero, selected work, and
-contact** exist so far (`src/components/Intro.tsx`, `Hero.tsx`,
-`SelectedWork.tsx`, `Contact.tsx`, wired in `src/app/page.tsx`). Short about
-is not built yet. `<Contact>` has `id="contact"`, which is what
-`site.nav`'s `/#contact` link actually resolves to.
+What replaces them is always **spatial**: content is frames in 2D space;
+"navigation" is pan / zoom / fly-to-frame; "sections" are regions of the
+canvas. A project isn't a card in a grid — it's a frame you pan to. The bio
+isn't an About page — it's a frame. Contact isn't a form — it's a frame with
+an email on it (a business card / a comment pin), never a `<form>`.
 
-## Content
+The one carve-out: **accessibility and crawlability are not "portfolio
+features"** — they are baseline requirements, and they are delivered through
+the invisible **semantic layer** (below), never through visible conventional
+chrome. Providing a screen-reader document does not violate the rule;
+adding a visible nav menu does.
 
-All content is **placeholder** for now, and lives in typed data files under
-`src/content/`:
+## Non-negotiables
 
-- `types.ts` — shared TypeScript types (`Project`, `CaseStudy`,
-  `CaseStudyBlock`, `CaseStudyImage`, `AboutContent`, `ContactContent`,
-  `SiteContent`, `HomeContent`)
-- `site.ts` — site-wide metadata (name, role, tagline, nav)
-- `projects.ts` — array of 6 `Project`s (`featured: true` on the 4 shown in
-  Home's Selected Work; all 6 appear on `/work`)
-- `about.ts` — bio and contact info (`contact.socials` includes LinkedIn,
-  Dribbble, Instagram; `contact.resumeUrl` is a **placeholder path**
-  (`/resume.pdf`) — add the real file at `public/resume.pdf`, nothing else
-  needs to change)
-- `home.ts` — hero headline/subhead, and `contactHeadline` (the warm
-  closing line in Contact)
+These are hard requirements, not goals. A change that breaks one is wrong.
 
-Project covers are real placeholder SVGs under `public/projects/` at their
-final display dimensions (1200×1500, 4:5) — sized correctly now so there's
-no layout shift when real photography replaces them. They're rendered with
-next/image's `unoptimized` prop (required for local SVG sources, since
-Next's optimizer disallows SVG by default).
+1. **60 fps pan / zoom.** The viewport must stay smooth on a laptop
+   trackpad. This dictates the whole rendering approach (see Architecture →
+   Viewport). Transform-only movement, no per-frame React re-render, no
+   layout thrash.
+2. **Keyboard navigable.** Everything reachable by pointer is reachable by
+   keyboard. Tab moves through frames/links in a logical order; focusing a
+   frame flies the viewport to it; there are explicit pan/zoom keys and a
+   "reset view" / "next frame" affordance.
+3. **Screen-reader readable.** A blind user gets a clean, ordered document
+   with landmarks, correct heading order, and alt text — via the semantic
+   layer. The canvas's absolute 2D positioning never leaks into reading
+   order.
+4. **Crawlable.** Server-rendered real HTML — real text, real headings, real
+   `<a href>` links — so search engines and link unfurlers get everything.
+   The content is not trapped behind canvas JavaScript.
+5. **Deep-linkable frames.** Every frame has its own URL that loads the
+   canvas already focused on it (and sets that frame's `<title>`/description/
+   OG). Sharing a project link lands the visitor on that project.
 
-Layout and content are decoupled: swap placeholder copy/images for real
-content later without touching any component or layout code.
+## Architecture
 
-### Case study content model
+### Single canvas route
 
-`Project.caseStudy` is a `CaseStudy` — an ordered list of `CaseStudySection`s
-(fixed sequence: `overview`, `problem`, `research`, `process`, `solution`,
-`outcome`; each has its own display `heading`, so wording can vary per
-project — e.g. "Outcome & Impact"). Each section holds an ordered array of
-**blocks**, freely mixed:
+There is exactly **one** route: the canvas. It is implemented as an optional
+catch-all — `src/app/[[...frame]]/page.tsx` — so one page component serves
+every URL:
 
-- `{ type: "heading", text }` — an inline sub-heading within a section.
-- `{ type: "body", text }` — a paragraph.
-- `{ type: "pullQuote", quote, attribution? }`.
-- `{ type: "fullBleedImage", image, caption? }` — breaks out to true
-  edge-to-edge width (see the layout note below).
-- `{ type: "imagePair", images: [a, b], caption? }` — two images side by
-  side, contained within `max-w-content`.
+- `/` → the whole canvas, default viewport
+- `/[slug]` (e.g. `/auravest`) → canvas focused on that project's frame
+- `/about`, `/contact` → canvas focused on those frames
 
-`src/content/projects.ts` has a `defaultCaseStudy()` helper producing a
-light-but-complete case study (one heading + one paragraph per section,
-one full-bleed image) — used for 5 of the 6 projects. **Auravest is the
-one fully populated example**, hand-written with every block type in use;
-read it as the reference for what a complete case study looks like.
+`generateStaticParams()` enumerates the root plus every project slug and
+special frame, so each frame URL is **statically pre-rendered** (SSG) and
+`generateMetadata()` gives each one frame-specific title/description/OG.
+Same single component, many crawlable, deep-linkable, pre-rendered URLs —
+this is how "single canvas route" and "deep-linkable + crawlable" reconcile.
+The `frame` param sets the canvas's **initial viewport transform** and the
+semantic layer's initial focus.
 
-Writing a new case study means adding data to `projects.ts` — no component
-or layout code needs to change.
+### Transform-based viewport
 
-**Full-bleed layout note:** `fullBleedImage` breaks out of its container via
-the standard `relative left-1/2 right-1/2 -mx-[50vw] w-screen` technique
-(in `CaseStudyBody.tsx`). This only avoids introducing a horizontal
-scrollbar because `overflow-x: hidden` is set on **both** `<html>` and
-`<body>` in `layout.tsx` — Lenis scrolls `documentElement`, not `body`, so
-the guard has to be on `<html>` too, not just `body`. If you add another
-full-bleed / breakout element and see an 8px-ish horizontal scroll appear,
-this is almost certainly why — check both, not just `body`.
+Canvas space is a large 2D coordinate system in **canvas units**. Frames
+have a position `(x, y)` and size `(w, h)` in those units. The viewport is a
+single state `{ x, y, scale }` applied as **one CSS transform on a parent
+"world" container**: `translate(x, y) scale(scale)`. Frames are absolutely
+positioned children inside that container, so moving the viewport moves one
+transform — the GPU composites it, nothing re-lays-out.
 
-## Design system
+**The 60 fps discipline (non-negotiable #1):**
 
-All tokens are defined once, in the `@theme` block(s) in `src/app/globals.css`
-(Tailwind v4 is CSS-first — there is no `tailwind.config.js`). `src/lib/tokens.ts`
-mirrors them as structured metadata for the `/styleguide` route to render; if
-you change a value, update both files. `src/lib/motion.ts` is the source of
-truth for motion values used in Framer Motion (durations/easings need real
-JS numbers, not just CSS).
+- Pan/zoom animate **`transform` only** (translate + scale). Never animate
+  `top`/`left`/`width`/`height` — those trigger layout and kill the frame
+  rate.
+- Drive the transform with **Framer Motion motion values**
+  (`useMotionValue` for x/y/scale, applied via `motion.div style={{ x, y,
+scale }}`). Pointer/wheel handlers write to the motion values directly —
+  **React does not re-render on every pointer move.** "Fly to frame" is an
+  `animate()` on those same motion values.
+- `will-change: transform` on the world container only; use sparingly.
+- If frame count grows, **virtualize** off-screen frames (skip rendering
+  frames far outside the viewport) rather than letting the DOM balloon.
 
-- **Colors** — `off-black` (#0E0E0E), `off-white` (#F4F2ED), one warm
-  `accent` (#C1622D), and a 9-step neutral `gray-100`…`gray-900` scale.
-  Tailwind's entire default color palette has been reset (`--color-*:
-initial` in globals.css) so only these tokens exist as color utilities —
-  this is deliberate, to enforce "keep it to these" at the tooling level.
-- **Type scale** — `display`, `h1`, `h2` (fluid, via `clamp()`, since
-  oversized/responsive headlines are a core design principle), `body`,
-  `small`, `mono-caption`. Used as `text-display`, `font-display`, etc.
-- **Fonts** (`next/font/google`) — **Fraunces** (`font-display`, expressive
-  display serif) and **Geist** / **Geist Mono** (`font-sans` / `font-mono`,
-  neutral).
-- **Spacing** — semantic scale `xs`/`sm`/`md`/`lg`/`xl`/`2xl`/`section`,
-  layered on top of Tailwind's default numeric spacing (both work, e.g.
-  `p-md` and `p-4`). **Gotcha:** these names shadow Tailwind's built-in
-  `max-w-{xs,sm,md,lg,xl,2xl,3xl}` container presets (both scales key off
-  the same names, and ours wins) — `max-w-2xl` silently resolves to our
-  6rem spacing token, not Tailwind's 42rem default. For a one-off content
-  width that isn't `max-w-content` or `max-w-prose`, use an arbitrary value
-  (`max-w-[42rem]`) instead of a named `max-w-*`.
-- **Radius** — `sm`/`md`/`lg`; `full` uses Tailwind's built-in
-  `rounded-full` rather than a themed value.
-- **Container** — `max-w-content` (75rem / 1200px) for the page wrapper;
-  `max-w-prose` (Tailwind default) for case-study reading width.
-- **Motion** — durations `fast`/`base`/`slow` (0.2s/0.4s/0.8s) and easings
-  `out`/`inOut`/`standard`, available as Tailwind utilities
-  (`duration-base`, `ease-out`) and as JS constants from `src/lib/motion.ts`
-  for Framer Motion.
+### Frames as nodes
 
-### Accessibility conventions
+A frame is an absolutely-positioned node at `(x, y)` sized `(w, h)` in canvas
+space, with a **frame label** rendered just above its top-left (Figma-style,
+11px). Frame kinds map one-to-one to content:
 
-These were established during a full WCAG AA pass over every page — follow
-them for new UI rather than re-deriving from scratch:
+- **Nameplate frame** — name, role, tagline (replaces the hero)
+- **Project frames** — one per project, the cover (replaces the work grid;
+  arranged spatially, not in a list)
+- **Case-study frames** — a project's full case study, a large frame (or a
+  small cluster of frames) you zoom into (replaces the `/work/[slug]` page)
+- **About frame** — the bio (replaces the About page)
+- **Contact frame** — email + socials on an artboard / comment pin (replaces
+  the contact form)
 
-- **Text contrast** — `gray-400` and `gray-600` are the readable-text floor:
-  `gray-400` **fails** AA (2.42:1 on off-white) and `gray-500` also fails
-  (3.71:1, need 4.5:1) for any real (normal-size) text — captions, kickers,
-  meta, labels. **Use `gray-600` (5.65:1) as the minimum for any text meant
-  to be read.** `gray-400`/`gray-500` still exist in the palette and are
-  fine for non-text use (the styleguide's own color swatches, decorative
-  fills) — just not as text color. `gray-700` (8.51:1) is used for
-  case-study body copy.
-- **Accent as text** — `accent` on off-white is 3.72:1: it passes for
-  **large text only** (≥24px regular — e.g. `text-h1`/`text-display`, like
-  `NextProjectLink`'s hover title or Contact's email CTA), and **fails**
-  for normal-size text (mono-caption labels, buttons). For accent-as-signal
-  on small text, don't change the text color — keep the base text color
-  and move the accent to a decoration instead:
-  `underline decoration-transparent hover:decoration-accent` (or
-  `decoration-accent` unconditionally for a persistent active state, as in
-  `WorkIndexGrid`'s active tag). This is the established pattern; reuse it
-  rather than reaching for `text-accent` on small text.
-- **Touch targets (≥44px)** — small mono-caption links/buttons (Nav,
-  Footer, tag filters, Contact's socials row) get `inline-block py-sm`
-  for a ~49px tap target, offset with `-my-sm` so the row's visual spacing
-  doesn't grow. Reuse `-my-sm inline-block py-sm` verbatim for any new
-  small text link in a tight row.
-- **Focus** — a single global rule in `globals.css`
-  (`:focus-visible { outline: 2px solid var(--color-accent); ... }`) gives
-  every interactive element a consistent, on-brand focus ring automatically
-  — it's unlayered CSS, so it beats Tailwind's `@layer`-scoped utilities
-  (including any element's own `outline-none`) regardless of class order.
-  You should not need to add per-element focus styles; if an element isn't
-  showing a ring, look for what's overriding the global rule rather than
-  patching that one element.
-- **Heading order** — one `h1` per page (usually inside a `KineticText`).
-  Section-level labels that are the only heading for their section (e.g.
-  `SelectedWork`'s "Selected Work", `/styleguide`'s `Section` labels) are
-  real `h2`/etc. elements, not styled `<p>`s — check new sections for this.
-  `ProjectCard`'s title is `h2` in both places it's used (`SelectedWork`
-  and `WorkIndexGrid`), which works because both parent pages go directly
-  from `h1` to `h2` with no intermediate level to skip.
-- **Skip link** — `layout.tsx` has a visually-hidden-until-focused "Skip to
-  content" link targeting `id="main-content"` on the wrapper div around
-  `{children}`. Keep that id if you touch the layout.
-- **`<Intro>`** is keyboard-skippable (Escape, or a visible "Skip intro"
-  button that's auto-focused when it appears) — see its own bullet below
-  for the full behavior. Any future full-screen/modal-like overlay should
-  follow the same pattern: auto-focus something in it, provide a keyboard
-  escape hatch, and `aria-hidden` the purely decorative parts.
+### Spatial composition is data
 
-### Primitives (`src/components/`)
+Where each frame sits on the canvas — its `{ x, y, w, h }`, label, and which
+content it carries — lives in a **data file** (planned:
+`src/lib/canvas/frames.ts`), not hard-coded in components. This continues the
+project's existing principle — _content is decoupled from layout_ — now as
+**spatial composition is decoupled from rendering**: you can rearrange the
+canvas by editing coordinates, without touching frame components. Frame
+content still comes from `src/content/*` (unchanged).
 
-- **`<Reveal>`** — fades + slides content up as it scrolls into view.
-  Renders children plainly (no animation) when `prefers-reduced-motion` is
-  set.
-- **`<KineticText>`** — animates a headline in word-by-word or
-  character-by-character. `trigger` is `"mount"`, `"scroll"`, or a
-  **boolean** (stays hidden until it becomes `true` — used to sync the
-  Hero headline with the Intro finishing). Always renders the full text
-  for screen readers (visually hidden), with the animated split marked
-  `aria-hidden`. No-op under `prefers-reduced-motion`.
-- **`<SmoothScrollProvider>`** — wraps the app root with Lenis smooth
-  scroll; skipped entirely under `prefers-reduced-motion` (falls back to
-  native scrolling).
-- **`<Nav>`** / **`<Footer>`** — global chrome rendered in the root layout.
-  Footer shows a live local time + city (from `content/site.ts`) and
-  email/socials (from `content/about.ts`); the clock is a client-only
-  effect (starts `null` server-side) to avoid a hydration mismatch.
-- **`<ProjectCard>`** — a project cover with a subtle scroll parallax
-  (skipped under `prefers-reduced-motion`) and a title/role/year caption.
-  The caption is hidden until hover on devices that support real hovering
-  (`@media (hover: hover)`), but always visible on touch, and revealed on
-  keyboard focus either way. Shared by `<SelectedWork>` and
-  `<WorkIndexGrid>` — don't fork it per-page.
-- **`<WorkIndexGrid>`** — `/work`'s responsive grid (all 6 projects) with a
-  simple single-select tag filter (click a tag again, or "All", to clear
-  it). Client component (filter state); `<ProjectCard>` does the rest.
-- **`<PullQuote>`** — accent left-border, italic `font-display` quote +
-  mono-caption attribution. Used by `<CaseStudyBody>`; reusable elsewhere.
+### Parallel semantic layer (accessibility + SEO)
 
-### Case study template (`src/components/`, used by `/work/[slug]`)
+The visual canvas is transform-positioned divs in arbitrary 2D — meaningless
+to a screen reader or crawler in that order. So content is rendered **twice,
+from the same data**, as two projections:
 
-- **`<CaseStudyHero>`** — tags row, kinetic oversized title, role/year, and
-  the project's `cover` image (contained, not full-bleed — full-bleed is
-  reserved for in-body images). All server-rendered except the
-  `KineticText` title.
-- **`<CaseStudyBody>`** — renders `Project.caseStudy.sections`, one
-  `<Reveal>` per section with a "0X / 06" progress label above each
-  heading. Prose blocks (heading/body/pullQuote) live in a `max-w-prose`
-  column; `imagePair` is `max-w-content`; `fullBleedImage` breaks out to
-  full viewport width (see the full-bleed layout note above). See the
-  Content section above for the full block-type reference.
-- **`<NextProjectLink>`** — bottom-of-page link to the next project in
-  `content/projects.ts` (wraps to the first after the last). Deliberately
-  text-only, no thumbnail — restraint over a second grid card.
+- **Visual layer** — the transform-based canvas of frames. Pixel-faithful to
+  Figma. Marked `aria-hidden` where it would otherwise pollute the a11y tree.
+- **Semantic layer** — a real, in-DOM document (`src/components/semantic/`):
+  `<main>` with an `<article>` per project, correct `<h1>`/`<h2>` order,
+  prose, alt text, and real `<a href>` deep-links. It is **present in the DOM
+  and the accessibility tree and the server HTML** (visually offscreen à la
+  `sr-only`, but **never** `display:none` and **never** `aria-hidden`). This
+  is what AT reads, what crawlers index, and what a "reader mode" would show.
 
-### Home page sections (`src/components/`)
+Both layers are generated from `src/content/*` — content is authored once;
+the canvas and the document are two views of it. Keyboard focus ties them
+together: Tab moves through the semantic layer in reading order, and each
+focus event flies the visual viewport to the matching frame, so the two stay
+in sync.
 
-- **`<Intro>`** — full-screen off-black overlay with a 0–100% counter and a
-  kinetic line, shown once per browser session (`sessionStorage`). Skipped
-  entirely under `prefers-reduced-motion` or if already seen this session.
-  Skippable by click, wheel, touch-move, the **Escape key**, or a visible
-  **"Skip intro" button** — the button is auto-focused the moment the
-  overlay appears, so keyboard users always land somewhere operable; the
-  decorative counter/kinetic line are `aria-hidden` since they're not real
-  page content. Calls `onComplete` the instant its wipe-away exit starts
-  (not after it finishes) so `<Hero>` can choreograph its own reveal to
-  line up with the wipe rather than waiting for it.
-- **`<Hero>`** — takes a `start: boolean` prop (passed as `<Intro>`'s
-  `onComplete` result from `src/app/page.tsx`) and uses it to drive
-  `KineticText`'s boolean trigger, so the headline stays hidden until the
-  intro hands off. Full `min-h-dvh` canvas (not `min-h-screen`, to avoid
-  mobile browser-chrome resize jank).
-- **`<SelectedWork>`** — the 4 `featured` projects from `content/projects.ts`,
-  in a 2-column editorial grid (`<ProjectCard>` + `<Reveal>` per item, staggered).
-  Plain server component — no client state of its own.
-- **`<Contact>`** — `id="contact"`, scroll-triggered `KineticText` closing
-  line, a large `text-display` `mailto:` link (the actual email address,
-  set as the biggest single element on the page — deliberately more
-  prominent than the headline above it), the socials + résumé row, and
-  `<ContactForm>`. Plain server component; `<ContactForm>` is the only
-  client piece.
-- **`<ContactForm>`** — minimal two-field (name optional, message required)
-  fallback to the main CTA. No backend: submit builds a `mailto:` link
-  from the fields via `FormData` (uncontrolled inputs) and hands off to
-  the visitor's own mail client. Fully labeled for accessibility.
+## Visual language — Figma's own UI
 
-`<WorkIndexGrid>` (used by `/work`, not Home) is a general primitive rather
-than a Home section — it's documented above with `<ProjectCard>` since it's
-shared UI, not part of the Home sequence.
+The chrome is Figma dark-mode UI, to the pixel. Tokens (planned, in
+`globals.css` `@theme`):
 
-Every token and primitive above is rendered live at **`/styleguide`** —
-check there first before eyeballing values in the CSS/TS files.
+| Token               | Value     | Use                                          |
+| ------------------- | --------- | -------------------------------------------- |
+| `--color-panel`     | `#1E1E1E` | Toolbar / panel chrome                       |
+| `--color-surface`   | `#2C2C2C` | Secondary surfaces, canvas backdrop          |
+| `--color-selection` | `#0D99FF` | Selection outlines, focus rings (Figma blue) |
+| `--color-comment`   | `#9747FF` | Comment pins / annotations (Figma purple)    |
 
-## Coding conventions
+- **UI text is 11px** — Figma's chrome size. Frame labels, toolbar,
+  coordinates, zoom %: all 11px, neutral UI sans, a dim gray on dark.
+- **Frame labels sit above frames** — the frame's name in 11px just above its
+  top-left corner, exactly like Figma renders artboard names.
+- **Selection = blue `#0D99FF`**; **comments/annotations = purple `#9747FF`**.
+  Use the blue for focus/selection and the purple for any pinned annotation
+  or callout — do not invent other accent colors.
+- **Artboard interiors keep the editorial palette.** The portfolio content
+  inside frames sits on light "artboards": the previous off-white (`#F4F2ED`)
+  and neutral gray scale survive **as artboard-interior tokens**, floating on
+  the dark Figma canvas. So the chrome is Figma-dark; the content is
+  editorial-light — the bridge between the two concepts.
 
-- **Components** live in `src/components/`, one section per component (e.g.
-  `Hero.tsx`, `WorkGrid.tsx`, `SignatureElement.tsx`) — not one giant page
-  file.
-- **No hardcoded colors or spacing.** Use design tokens defined in
-  `src/app/globals.css` (Tailwind v4 `@theme` block) — extend that block
-  instead of hardcoding hex values or arbitrary Tailwind spacing.
-- **Mobile-first.** Write base styles for mobile, layer in `sm:`/`md:`/`lg:`
-  breakpoints for larger screens.
-- Prefer server components by default; mark a component `"use client"` only
-  when it needs interactivity, animation hooks, or browser APIs (e.g. the
-  Lenis scroll provider, Framer Motion components with hooks/gestures).
+## Content (unchanged data model)
 
-## Performance & SEO
+Content still lives in typed data files under `src/content/` and is the
+single source both layers project from:
 
-- **Images** — every `<Image>` sets `priority` only on covers that are
-  genuinely above the fold for that specific grid's widest breakpoint
-  (`WorkIndexGrid` uses `i < 3` to match `lg:grid-cols-3`; `SelectedWork`
-  sets **no** priority at all, since that section sits below the
-  full-viewport Hero and is never actually above the fold). Everything
-  else is lazy by default (next/image's default). Don't just copy a
-  priority count between grids with different column counts — match it to
-  the layout.
-- **Fonts** — all three (`Fraunces`, `Geist`, `Geist Mono`) load via
-  `next/font/google` with explicit `display: "swap"`; preloading is
-  automatic (next/font's default).
-- **`<Intro>` is code-split** — `src/app/page.tsx` loads it via
-  `next/dynamic` with `ssr: false` (safe because Intro already renders
-  `null` until a client-only sessionStorage check resolves, so there was
-  no SSR content to lose). This keeps Intro's module out of Hero's
-  critical-path JS.
-- **Site URL** — `src/lib/site-url.ts` resolves the canonical URL for
-  `metadataBase`, the sitemap, robots.txt, and JSON-LD: explicit
-  `NEXT_PUBLIC_SITE_URL` → Vercel's auto-set `VERCEL_PROJECT_PRODUCTION_URL`
-  → `VERCEL_URL` → `localhost:3000`. Set `NEXT_PUBLIC_SITE_URL` once a
-  custom domain is connected so metadata stops pointing at the
-  `*.vercel.app` URL.
-- **Metadata** — the root layout sets a title **template**
-  (`%s — Azizbek Tolibov`), so any page just exports `title: "Work"` and
-  gets the full string composed automatically. Every real page has its own
-  `title` + `description`; `/styleguide` additionally sets
-  `robots: { index: false, follow: false }` since it's an internal
-  reference page, not public content — and is excluded from `sitemap.ts`
-  for the same reason.
-- **OG / Twitter images** are generated at request time via `next/og`'s
-  `ImageResponse`, not static files — `src/app/opengraph-image.tsx` +
-  `twitter-image.tsx` (site default) and
-  `src/app/work/[slug]/opengraph-image.tsx` (per-project, using
-  title/role/year). Shared visuals live in `src/lib/og-content.tsx`.
-  **Gotcha:** Satori (the renderer behind `ImageResponse`) requires an
-  **explicit** `display: "flex"` on any `<div>` with more than one child
-  node — including a div whose only children are plain text/expressions
-  like `{role} — {year}` (that's 3 child nodes: two expressions + the
-  dash). Omitting it doesn't error at build time, only at request time in
-  production (`next start`/deployed) — `next dev` and `tsc` won't catch
-  it. If you add a new OG image and it 500s only in production, check
-  this first.
-- **Icon** — `src/app/icon.tsx` (generated via `ImageResponse`, same
-  Satori rules apply) replaced the default Next.js scaffold favicon.
-- **JSON-LD** — a `Person` schema (name, jobTitle, url, email, `sameAs`
-  from `contact.socials`) is rendered as a `<script>` tag in the root
-  layout, site-wide.
+- `types.ts` — `Project`, `CaseStudy`, `CaseStudyBlock` (`heading` / `body` /
+  `pullQuote` / `fullBleedImage` / `imagePair`), `CaseStudySection`,
+  `CaseStudyImage`, plus `AboutContent` / `ContactContent` / `SiteContent`.
+- `projects.ts` — the 6 projects, each with its `caseStudy`. **Auravest** is
+  the one fully populated example (every block type); the rest use the
+  `defaultCaseStudy()` helper.
+- `about.ts` — bio + contact (email, socials, résumé).
+- `site.ts` — name, role, tagline, location. (Its old `nav` array is a
+  conventional-nav artifact and will be dropped; there is no nav.)
+- `home.ts` — old hero/contact copy; its lines get repurposed as frame text
+  (tagline → nameplate, contact line → contact frame).
+
+Project covers are placeholder SVGs in `public/projects/` at final display
+dimensions, rendered via next/image with `unoptimized` (SVG). The
+case-study block model is unchanged and is what the case-study **frame**
+renderer and the semantic layer both consume.
+
+## Planned file structure
+
+```
+src/
+  app/
+    [[...frame]]/page.tsx   the single canvas route (SSG per frame)
+    layout.tsx              Figma dark shell (no nav/footer/scroll provider)
+    globals.css             Figma UI tokens + artboard-interior tokens
+    icon.tsx, opengraph-image.tsx, twitter-image.tsx   (kept; restyle OG)
+    sitemap.ts, robots.ts   (rewritten for the new URL shape)
+  components/
+    canvas/                 Canvas (viewport), Frame, FrameLabel, CommentPin…
+    frames/                 NameplateFrame, ProjectFrame, CaseStudyFrame,
+                            AboutFrame, ContactFrame (projections of content)
+    semantic/               the parallel semantic document
+  lib/
+    canvas/frames.ts        spatial composition data ({x,y,w,h}+label+content)
+    canvas/viewport.ts      motion-value viewport controller + fly-to math
+    motion.ts               (kept) durations/easings for Framer Motion
+    site-url.ts             (kept) canonical URL resolver for metadata
+    og-content.tsx          (kept) OG image visuals
+  content/                  (kept, unchanged) the content data model
+```
+
+## Removed with the old concept
+
+The previous build was a conventional scrolling editorial site (cinematic
+intro → hero → work grid → about → contact, plus a case-study page template).
+All of that chrome is deleted because it is exactly what the Hard Rule
+forbids. See the deletion list maintained alongside this rewrite. The
+**content and data survive**; only the page-document presentation of it is
+gone.
+
+## Conventions still in force
+
+Carried over from the prior build because they're concept-independent:
+
+- **Accessibility contrast** — compute WCAG ratios, don't eyeball. On dark
+  Figma chrome, UI text must clear AA against `#1E1E1E`/`#2C2C2C`; artboard
+  content keeps the previously-validated light-palette floors (`gray-600` is
+  the readable-text minimum on off-white, `gray-400`/`500` are non-text
+  only). Every interactive element gets a visible focus ring — reuse the
+  Figma **blue `#0D99FF`** for it.
+- **`prefers-reduced-motion`** — pan/zoom animations and any fly-to must have
+  a reduced-motion path (instant jumps instead of animated flights). The
+  canvas still works with motion off.
+- **SEO infra** — `site-url.ts` resolves the canonical URL
+  (`NEXT_PUBLIC_SITE_URL` → Vercel env → localhost); root layout sets
+  `metadataBase` + a title template + JSON-LD `Person`; per-frame
+  `generateMetadata`. `next/og` images: **Satori needs explicit
+  `display:flex` on any div with >1 child** (this only errors at request
+  time in production — `next dev`/`tsc` won't catch it).
+- **Content decoupled from presentation** — now generalized: content in
+  `/content`, spatial composition in `/lib/canvas`, rendering in
+  `/components`. Editing any one must not require touching the others.
 
 ## Stack
 
 - **Next.js** (App Router) + **TypeScript**
-- **Tailwind CSS v4** (CSS-first config, no `tailwind.config.js`)
-- **Framer Motion** — animation
-- **Lenis** — smooth scroll
-- **ESLint** + **Prettier** (with `prettier-plugin-tailwindcss` for class
-  sorting)
+- **Tailwind CSS v4** (CSS-first `@theme`, no `tailwind.config.js`)
+- **Framer Motion** — drives the viewport transform (motion values) and
+  fly-to animations; **Lenis is removed** (smooth _scroll_ is a
+  page-document idea; there is no scroll)
+- **next/font** — self-hosted UI sans (11px chrome); editorial display type
+  for artboard content is optional, revisit during build
+- **ESLint** + **Prettier** (with `prettier-plugin-tailwindcss`)
 
 ## Commands
 
-- `npm run dev` — start dev server
+- `npm run dev` — dev server
 - `npm run build` — production build
-- `npm run start` — serve the production build (use this, not `dev`, for
-  any real performance/Lighthouse check — dev mode is meaningfully slower)
+- `npm run start` — serve the production build (use this, not `dev`, for any
+  real performance/Lighthouse check)
 - `npm run lint` — ESLint
-- `npm run format` — Prettier write
-- `npm run format:check` — Prettier check (no writes)
-
-## Deployment
-
-Hosted on Vercel, connected to a GitHub repo (`main` branch = production).
-Local git identity is set **repo-locally** (not global) with a placeholder
-email — update it (`git config user.email "..."`) if you want your real
-email attached to commits before pushing.
-
-To point metadata at a custom domain once one is connected, set
-`NEXT_PUBLIC_SITE_URL` in Vercel's project environment variables (Settings
-→ Environment Variables) to the full URL (e.g. `https://azizbektolibov.com`)
-and redeploy — see `src/lib/site-url.ts`.
+- `npm run format` / `format:check` — Prettier

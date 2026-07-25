@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Geist, Geist_Mono } from "next/font/google";
-import { Footer } from "@/components/Footer";
-import { Nav } from "@/components/Nav";
-import { SmoothScrollProvider } from "@/components/SmoothScrollProvider";
+import { Caveat, Fraunces, Geist, Geist_Mono } from "next/font/google";
 import { contact } from "@/content/about";
 import { site } from "@/content/site";
 import { getSiteUrl } from "@/lib/site-url";
@@ -26,6 +23,13 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: "--font-mono",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+// Handwritten-feel face for the canvas's sticky notes only.
+const caveat = Caveat({
+  variable: "--font-hand",
   subsets: ["latin"],
   display: "swap",
 });
@@ -72,9 +76,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${geistSans.variable} ${geistMono.variable} h-full overflow-x-hidden antialiased`}
+      className={`${fraunces.variable} ${geistSans.variable} ${geistMono.variable} ${caveat.variable} h-full overflow-hidden antialiased`}
     >
-      <body className="bg-off-white text-off-black flex min-h-full flex-col overflow-x-hidden">
+      <body className="h-full overflow-hidden">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
@@ -85,13 +89,9 @@ export default function RootLayout({
         >
           Skip to content
         </a>
-        <SmoothScrollProvider>
-          <Nav />
-          <div id="main-content" className="flex flex-1 flex-col">
-            {children}
-          </div>
-          <Footer />
-        </SmoothScrollProvider>
+        <div id="main-content" tabIndex={-1} className="h-full">
+          {children}
+        </div>
       </body>
     </html>
   );
