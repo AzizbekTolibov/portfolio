@@ -55,14 +55,13 @@ const WHEEL_STEP_THRESHOLD = 12;
  * until the current camera travel has had time to land. */
 const STEP_COOLDOWN_MS = 900;
 
-// Figma-style custom cursors, screen-space by definition (a real CSS
+// The browser's own native cursors, screen-space by definition (a real CSS
 // `cursor`, never a DOM element inside the transformed canvas layer, which
-// is the whole point — see CLAUDE.md's navigation model). Hotspot
-// coordinates are the second/third numbers, matched to each glyph's tip.
-const CURSOR_ARROW = "url('/cursors/arrow.svg') 2 2, default";
-const CURSOR_HAND_OPEN = "url('/cursors/hand-open.svg') 12 14, grab";
-const CURSOR_HAND_CLOSED = "url('/cursors/hand-closed.svg') 12 14, grabbing";
-const CURSOR_ZOOM = "url('/cursors/zoom.svg') 9 9, zoom-in";
+// is the whole point — see CLAUDE.md's navigation model).
+const CURSOR_ARROW = "default";
+const CURSOR_HAND_OPEN = "grab";
+const CURSOR_HAND_CLOSED = "grabbing";
+const CURSOR_ZOOM = "zoom-in";
 
 type DragState = {
   active: boolean;
@@ -294,9 +293,7 @@ export function useCanvasEngine<T extends EngineNode>(
    * -1 when nothing's selected, the selection is a group, or there's no
    * frameOrder at all — i.e. whether we're in the FOCUSED-state stepping
    * sequence right now. */
-  const focusedIndex = frameOrder
-    ? frameOrder.indexOf(selectedId ?? "")
-    : -1;
+  const focusedIndex = frameOrder ? frameOrder.indexOf(selectedId ?? "") : -1;
 
   /** Steps to the next (+1) or previous (-1) frame in the authored order.
    * Clamps at either end rather than wrapping. No-op outside FOCUSED

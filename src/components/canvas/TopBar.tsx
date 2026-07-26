@@ -20,15 +20,51 @@ type TopBarProps = {
   onShare: () => void;
   isMobile?: boolean;
   /** Set only on a project page — the breadcrumb's third segment
-   * ("Azizbek Tolibov / Portfolio 2026 / Auravest"). */
+   * ("Azizbek Tolibov / Portfolio 2026 / Auravest"), rendered as the
+   * current, non-interactive location. */
   pageName?: string;
-  /** Present only on a project page. */
-  onBackToHome?: () => void;
-  onPrevProject?: () => void;
-  onNextProject?: () => void;
+  /** Navigates Home — wired to the "Azizbek Tolibov" and "Portfolio 2026"
+   * breadcrumb segments, which are real clickable links only when
+   * `pageName` is set (i.e. those segments aren't already the current
+   * location). Undefined on Home itself. */
+  onGoHome?: () => void;
 };
 
 const ZOOM_PRESETS = [50, 100, 200];
+
+/** A breadcrumb segment: plain (non-interactive) text when it's already
+ * the current location, a real focusable button when it navigates. Never
+ * a dead link — `onClick` is only ever passed when there's somewhere to
+ * go. */
+function BreadcrumbSegment({
+  label,
+  onClick,
+  current,
+}: {
+  label: string;
+  onClick?: () => void;
+  current?: boolean;
+}) {
+  if (!onClick) {
+    return (
+      <span
+        aria-current={current ? "page" : undefined}
+        className="text-off-white/80 truncate"
+      >
+        {label}
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="focus-visible:ring-selection text-off-white/60 hover:text-off-white/90 focus-visible:text-off-white/90 truncate rounded transition-colors focus-visible:ring-2 focus-visible:outline-none"
+    >
+      {label}
+    </button>
+  );
+}
 
 function ToolButton({
   label,
@@ -150,9 +186,7 @@ export function TopBar({
   onShare,
   isMobile = false,
   pageName,
-  onBackToHome,
-  onPrevProject,
-  onNextProject,
+  onGoHome,
 }: TopBarProps) {
   return (
     <header className="bg-panel border-off-white/10 relative z-20 flex h-12 shrink-0 items-center border-b px-3">
@@ -167,19 +201,24 @@ export function TopBar({
           aria-label="Breadcrumb"
           className="text-off-white/60 flex min-w-0 items-center gap-1 font-mono text-[11px] whitespace-nowrap"
         >
-          <span className="text-off-white/80 truncate">Azizbek Tolibov</span>
+          <BreadcrumbSegment
+            label="Azizbek Tolibov"
+            onClick={pageName ? onGoHome : undefined}
+          />
           {!isMobile && (
             <>
               <ChevronRightIcon className="h-3 w-3 shrink-0 opacity-50" />
-              <span className={pageName ? "" : "text-off-white/80"}>
-                Portfolio 2026
-              </span>
+              <BreadcrumbSegment
+                label="Portfolio 2026"
+                onClick={pageName ? onGoHome : undefined}
+                current={!pageName}
+              />
             </>
           )}
           {pageName && (
             <>
               <ChevronRightIcon className="h-3 w-3 shrink-0 opacity-50" />
-              <span className="text-off-white/80 truncate">{pageName}</span>
+              <BreadcrumbSegment label={pageName} current />
             </>
           )}
         </nav>
@@ -219,45 +258,6 @@ export function TopBar({
       )}
 
       <div className="flex flex-1 items-center justify-end gap-3">
-        {!isMobile && pageName && (
-          <div
-            role="group"
-            aria-label="Project navigation"
-            className="flex items-center gap-0.5"
-          >
-            <button
-              type="button"
-              onClick={onPrevProject}
-              disabled={!onPrevProject}
-              aria-label="Previous project"
-              title="Previous project"
-              className="text-off-white/70 hover:text-off-white flex h-7 items-center gap-1 rounded px-1.5 font-mono text-[11px] hover:bg-white/5 disabled:pointer-events-none disabled:opacity-30"
-            >
-              <ChevronRightIcon className="h-3 w-3 rotate-180" />
-              Prev
-            </button>
-            <button
-              type="button"
-              onClick={onBackToHome}
-              aria-label="Back to Home"
-              title="Back to Home"
-              className="text-off-white/70 hover:text-off-white flex h-7 items-center rounded px-2 font-mono text-[11px] hover:bg-white/5"
-            >
-              Home
-            </button>
-            <button
-              type="button"
-              onClick={onNextProject}
-              disabled={!onNextProject}
-              aria-label="Next project"
-              title="Next project"
-              className="text-off-white/70 hover:text-off-white flex h-7 items-center gap-1 rounded px-1.5 font-mono text-[11px] hover:bg-white/5 disabled:pointer-events-none disabled:opacity-30"
-            >
-              Next
-              <ChevronRightIcon className="h-3 w-3" />
-            </button>
-          </div>
-        )}
         <button
           type="button"
           onClick={onShare}

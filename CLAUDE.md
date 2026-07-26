@@ -10,13 +10,12 @@ The portfolio **is** a Figma file, not a metaphor layered on top of one.
 Figma files have **Pages** — Home is one page, and every project is its
 own page — and each page is its own infinite 2D canvas of frames. You
 don't scroll a document; within a page you pan and zoom, and between
-pages you switch in the Pages panel (or click a page's own content, or
-use Prev/Next project). The metaphor is total, not decorative — it
-determines the entire information architecture and every navigation
-affordance, including the parts that would look like "conventional
-portfolio chrome" if you squinted: the breadcrumb and Prev/Next controls
-below are Figma's own top-bar and page-switching UI, not a portfolio nav
-bar wearing a disguise.
+pages you switch in the Pages panel or click a page's own content (a
+project tile on Home, or the breadcrumb to go back). The metaphor is
+total, not decorative — it determines the entire information architecture
+and every navigation affordance, including the part that would look like
+"conventional portfolio chrome" if you squinted: the breadcrumb below is
+Figma's own top-bar chrome, not a portfolio nav bar wearing a disguise.
 
 The design work is presented in the tool the design work was made in. That is
 the whole idea.
@@ -48,14 +47,17 @@ What **is** present, because Figma itself has it:
   file/page chrome, pixel-matched, not a portfolio nav bar. The test that
   keeps this honest: would Figma show this exact element, with this exact
   behavior, for a file that had nothing to do with a portfolio? Yes — every
-  Figma file has a Pages list and this breadcrumb shape.
-- **Prev/Next project + Back to Home** in the top bar, present only on a
-  project page — the closest real-world analogue is Figma's own
-  "back to community/file" affordance, adapted for a linear project
-  sequence. This is the one piece of chrome that's genuinely
-  portfolio-motivated rather than a literal Figma pattern; it's kept
-  minimal (three small buttons, not a nav bar) and confined to project
-  pages only.
+  Figma file has a Pages list and this breadcrumb shape. The breadcrumb is
+  the **sole** page-switching affordance in the top bar: `Azizbek Tolibov`
+  and `Portfolio 2026` navigate Home (real `<button>`s, not on Home itself,
+  where they're already the current location and render as plain
+  non-interactive text instead of dead links); the current page name (the
+  third segment, only present on a project page) is never interactive —
+  `aria-current="page"`, styled as a location, not a link. There is no
+  separate Prev/Next-project control — that was tried and dropped as the
+  one piece of chrome that was genuinely portfolio-motivated rather than a
+  literal Figma pattern (see git history if you're looking for it; it
+  isn't coming back without a specific request).
 
 What replaces conventional portfolio ideas is otherwise always **spatial**:
 content is frames in 2D space; "navigation" within a page is pan / zoom /
@@ -199,13 +201,15 @@ state — they're never required, only available.
 
 ### The pointer cursor is real CSS, not a canvas child
 
-The cursor swaps by tool/state — arrow (move tool default), open hand
-(hand tool idle), closed/grabbing hand (actively panning), a zoom glyph
-(Cmd/Ctrl held) — via custom SVGs in `public/cursors/` applied as
-`cursor: url(...) hotspotX hotspotY, fallback` **on the viewport element
-itself**. This is the only correct way to do it: a real CSS cursor is
-screen-space by definition and can never inherit the world layer's
-`scale()`.
+The cursor swaps by tool/state — `default` (move tool default), `grab`
+(hand tool idle), `grabbing` (actively panning), `zoom-in` (Cmd/Ctrl held) —
+via plain native CSS keywords applied **on the viewport element itself**.
+This is the only correct way to do it: a real CSS cursor is screen-space by
+definition and can never inherit the world layer's `scale()` — a DOM
+element positioned inside the transformed canvas layer would grow and
+shrink with zoom instead. The state logic (which cursor applies when) lives
+in `use-canvas-engine.ts`'s `updateCursor()`; only the four values
+themselves are native keywords rather than custom SVGs.
 
 ### Frames as nodes
 
@@ -232,8 +236,9 @@ per frame. Two grids in particular are **computed, never hardcoded**, via
 
 - Home's project-tile grid (4 per row, wraps to as many rows as
   `projects.length` needs)
-- Each project page's photo grid (4 per row, wraps based on
-  `project.images.length`)
+- Each project page's photo column (a single column — `cols: 1` — of
+  however many rows `project.images.length` needs, stacked title → year →
+  description → Photo 1..N, all sharing one column width)
 
 Adding a 7th or 10th project, or a 5th photo to an existing project, is a
 one-line content edit in `content/projects.ts` — no coordinate anywhere
@@ -285,7 +290,7 @@ The chrome is Figma dark-mode UI, to the pixel.
   gray scale, floating on the dark Figma canvas.
 - **Unverified facts render in red (`#F24822`, Figma's own "missing" red).**
   Any `[BRACKETED]` run in a content string — `[YEAR]`, `[RATIONALE — TO
-  WRITE]`, etc. — is automatically rendered in that color by
+WRITE]`, etc. — is automatically rendered in that color by
   `src/lib/canvas/placeholder-text.tsx`'s `<PlaceholderText>`, used
   everywhere user-authored copy renders (inspector rows, case-study-style
   body copy, OG captions where feasible). This exists so a fact that hasn't
@@ -377,8 +382,8 @@ scripts/
   `metadataBase` + a title template + JSON-LD `Person` (including a real
   `address` once supplied); `page.tsx`'s `generateMetadata` reads `?page=`.
   `next/og` images: **Satori needs explicit `display:flex` on any div with
-  >1 child** (this only errors at request time in production — `next
-  dev`/`tsc` won't catch it).
+  > 1 child** (this only errors at request time in production — `next
+dev`/`tsc` won't catch it).
 - **Content decoupled from presentation** — content in `/content`, spatial
   composition (now: page generation) in `/lib/canvas` + `content/canvas.ts`,
   rendering in `/components`. Editing any one must not require touching the

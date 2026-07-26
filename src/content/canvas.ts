@@ -133,7 +133,8 @@ const NEUTRAL_ACCENT = "#2C2A25";
 const PROJECT_TILE_WIDTH = 450;
 const PROJECT_TILE_IMAGE_HEIGHT = 560;
 const PROJECT_TILE_TEXT_HEIGHT = 110;
-const PROJECT_TILE_HEIGHT = PROJECT_TILE_IMAGE_HEIGHT + PROJECT_TILE_TEXT_HEIGHT;
+const PROJECT_TILE_HEIGHT =
+  PROJECT_TILE_IMAGE_HEIGHT + PROJECT_TILE_TEXT_HEIGHT;
 const PROJECT_TILE_GUTTER = 100;
 const PROJECT_GRID_COLS = 4;
 
@@ -484,16 +485,21 @@ function buildHomeNodes(): CanvasNode[] {
 }
 
 // ==================================================================
-// PROJECT PAGE — title/year/description, then an auto-computed
-// photo grid. Every position below is derived from
-// `project.images.length` via autoGrid(); nothing is hardcoded.
+// PROJECT PAGE — a single vertical column: title/year/description, then
+// every photo stacked top to bottom, all sharing one column width. Every
+// position below is still derived from `project.images.length` via
+// autoGrid() (with cols: 1) — nothing is hardcoded; a 5th photo in
+// content/projects.ts is still a one-line change, it just adds a row to
+// a column instead of a cell to a grid.
 // ==================================================================
 
 const TITLE_FRAME_HEIGHT = 420;
-const PHOTO_CELL_WIDTH = 760;
-const PHOTO_CELL_HEIGHT = 475;
+const PHOTO_CELL_WIDTH = 900;
+// Matches the 1600x1000 (1.6:1) placeholder photos' aspect ratio exactly,
+// so a photo frame never stretches or letterboxes its image.
+const PHOTO_CELL_HEIGHT = 560;
 const PHOTO_GUTTER = 100;
-const PHOTO_COLS = 4;
+const PHOTO_COLS = 1;
 
 function buildProjectPageNodes(project: Project): CanvasNode[] {
   const baseColor = PROJECT_COLORS[project.slug] ?? "#888888";
@@ -509,7 +515,10 @@ function buildProjectPageNodes(project: Project): CanvasNode[] {
     originY: photoOriginY,
   });
   const photoGridSize = autoGridSize(photoRects, 0, photoOriginY);
-  const pageWidth = Math.max(photoGridSize.width, 900);
+  // With a single column, this is always exactly PHOTO_CELL_WIDTH — kept
+  // computed (not just `= PHOTO_CELL_WIDTH`) so the title/description
+  // frame's width can never drift out of sync with the photo column's.
+  const pageWidth = photoGridSize.width;
   const pageHeight = photoOriginY + photoGridSize.height;
 
   const groupId = `${project.slug}-group`;

@@ -24,7 +24,9 @@ function contrastRatio(hexA: string, hexB: string): number {
 /** Off-black or off-white — whichever clears WCAG contrast against the
  * given background. Both project tokens (see globals.css), never an
  * invented color. */
-export function readableTextColor(backgroundHex: string): "#0E0E0E" | "#F4F2ED" {
+export function readableTextColor(
+  backgroundHex: string,
+): "#0E0E0E" | "#F4F2ED" {
   const withDark = contrastRatio(backgroundHex, "#0E0E0E");
   const withLight = contrastRatio(backgroundHex, "#F4F2ED");
   return withDark >= withLight ? "#0E0E0E" : "#F4F2ED";

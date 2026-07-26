@@ -160,7 +160,7 @@ export function FileTab({
               isFrameSelected || isGroupSelected
                 ? "bg-selection/15 text-selection"
                 : isHovered
-                  ? "bg-white/5 text-off-white/90"
+                  ? "text-off-white/90 bg-white/5"
                   : "text-off-white/75 hover:bg-white/5 focus-visible:bg-white/5"
             }`}
           >

@@ -42,7 +42,9 @@ const TEXT_VARIANT_CLASSES: Record<string, string> = {
  * name+role reads as the largest, most prominent text on the whole
  * canvas; a project's own title is next; About/Contact's short labels
  * are smaller supporting text. */
-const FLAT_LABEL_SIZE: Partial<Record<string, { primary: number; sub: number }>> = {
+const FLAT_LABEL_SIZE: Partial<
+  Record<string, { primary: number; sub: number }>
+> = {
   "site-cover": { primary: 96, sub: 34 },
   "project-cover": { primary: 72, sub: 28 },
   "project-overview": { primary: 72, sub: 28 },
@@ -225,15 +227,31 @@ export function Frame({
   hovered,
   onHoverChange,
 }: FrameProps) {
+  // Home's project tiles are page-links — hover is the only affordance
+  // signalling they navigate, so they get an extra lift + cover-image
+  // scale on top of every frame's ordinary hover outline. `selected` here
+  // never comes from a real click (a page-link click navigates away
+  // before selection ever sticks) — it only ever comes from Tab-focusing
+  // the tile's semantic-layer link (see CanvasWorkspace's
+  // handleFocusFrame), which makes `hovered || selected` exactly
+  // "pointer hover OR keyboard :focus-visible" for this one kind, with no
+  // second hover state to keep in sync.
+  const isProjectTile = node.content?.kind === "project-cover";
+  const tileActive = isProjectTile && (hovered || selected);
+
   return (
     <div
       data-frame-id={node.id}
-      className="absolute"
+      className="absolute transition-transform duration-150 ease-out motion-reduce:transition-none"
       style={{
         left: node.x,
         top: node.y,
         width: node.width,
         height: node.height,
+        // Inline, not a dynamic Tailwind class string — a template-
+        // literal class name here isn't statically analyzable, so it
+        // never made it into the generated CSS at all.
+        transform: tileActive ? "translateY(-4px)" : undefined,
       }}
       onMouseEnter={() => onHoverChange(true)}
       onMouseLeave={() => onHoverChange(false)}
@@ -260,7 +278,16 @@ export function Frame({
               : ""
         }`}
       >
-        <FrameChildren frame={node} childNodes={childNodes} lodBand={lodBand} />
+        <div
+          className="h-full w-full transition-transform duration-150 ease-out motion-reduce:transition-none"
+          style={{ transform: tileActive ? "scale(1.03)" : undefined }}
+        >
+          <FrameChildren
+            frame={node}
+            childNodes={childNodes}
+            lodBand={lodBand}
+          />
+        </div>
 
         {selected &&
           CORNER_CLASSES.map((positionClasses) => (

@@ -3,7 +3,12 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { contact } from "@/content/about";
-import { getPageNodes, PAGES, type CanvasNode, type PageId } from "@/content/canvas";
+import {
+  getPageNodes,
+  PAGES,
+  type CanvasNode,
+  type PageId,
+} from "@/content/canvas";
 import { projects } from "@/content/projects";
 import { buildLayerTree, groupChildrenByParent } from "@/lib/canvas/tree";
 import { useCanvasEngine } from "@/lib/canvas/use-canvas-engine";
@@ -85,8 +90,9 @@ export function CanvasWorkspace({ initialPageId }: CanvasWorkspaceProps) {
   const frameOrder = useMemo(
     () =>
       spatialNodes
-        .filter((n): n is Extract<SpatialNode, { type: "frame" }> =>
-          n.type === "frame",
+        .filter(
+          (n): n is Extract<SpatialNode, { type: "frame" }> =>
+            n.type === "frame",
         )
         .map((n) => n.id),
     [spatialNodes],
@@ -126,12 +132,9 @@ export function CanvasWorkspace({ initialPageId }: CanvasWorkspaceProps) {
   // (a popstate event) — otherwise back/forward would fight itself.
   const skipUrlSyncRef = useRef(false);
 
-  const navigateToPage = useCallback(
-    (id: PageId) => {
-      setPageId((prev) => (prev === id ? prev : id));
-    },
-    [],
-  );
+  const navigateToPage = useCallback((id: PageId) => {
+    setPageId((prev) => (prev === id ? prev : id));
+  }, []);
 
   const engineMinZoom = isMobile ? MOBILE_MIN_ZOOM : undefined;
   const engineMaxZoom = isMobile ? MOBILE_MAX_ZOOM : undefined;
@@ -334,16 +337,6 @@ export function CanvasWorkspace({ initialPageId }: CanvasWorkspaceProps) {
       ) ?? null)
     : null;
 
-  // ---- Previous/Next project + Back to Home (project pages only) ----
-
-  const projectIndex =
-    pageId === "home" ? -1 : projects.findIndex((p) => p.slug === pageId);
-  const prevProject = projectIndex > 0 ? projects[projectIndex - 1] : undefined;
-  const nextProject =
-    projectIndex !== -1 && projectIndex < projects.length - 1
-      ? projects[projectIndex + 1]
-      : undefined;
-
   // ---- mobile Prev/Next: steps through every real frame on this page ----
 
   const currentFrameIndex = useMemo(() => {
@@ -461,13 +454,7 @@ export function CanvasWorkspace({ initialPageId }: CanvasWorkspaceProps) {
         onZoomToPercent={zoomToPercent}
         onShare={handleShare}
         pageName={currentProject?.title}
-        onBackToHome={pageId !== "home" ? () => navigateToPage("home") : undefined}
-        onPrevProject={
-          prevProject ? () => navigateToPage(prevProject.slug) : undefined
-        }
-        onNextProject={
-          nextProject ? () => navigateToPage(nextProject.slug) : undefined
-        }
+        onGoHome={pageId !== "home" ? () => navigateToPage("home") : undefined}
       />
       <div className="flex min-h-0 flex-1">
         <LeftPanel

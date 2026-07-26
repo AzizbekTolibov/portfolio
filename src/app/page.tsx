@@ -25,8 +25,14 @@ export async function generateMetadata({
   return {
     title,
     description: project.description,
-    openGraph: { title: `${title} — ${site.name}`, description: project.description },
-    twitter: { title: `${title} — ${site.name}`, description: project.description },
+    openGraph: {
+      title: `${title} — ${site.name}`,
+      description: project.description,
+    },
+    twitter: {
+      title: `${title} — ${site.name}`,
+      description: project.description,
+    },
   };
 }
 
@@ -34,7 +40,8 @@ export default async function CanvasPage({ searchParams }: CanvasPageProps) {
   const { page } = await searchParams;
   // Only a real page id counts as a deep link — an unrecognized ?page=
   // value falls back to Home rather than rendering an empty page.
-  const initialPageId = page && PAGES.some((p) => p.id === page) ? page : undefined;
+  const initialPageId =
+    page && PAGES.some((p) => p.id === page) ? page : undefined;
 
   return <CanvasWorkspace initialPageId={initialPageId} />;
 }

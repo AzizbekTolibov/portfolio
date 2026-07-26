@@ -101,7 +101,9 @@ function Entry({
   // Rendered as one cohesive section (image alt, title, year, two real
   // actions) rather than recursing into a redundant nested "Cover" heading.
   const pageLinkChild = children.find(
-    (c): c is LayerTreeNode & { node: Extract<CanvasNode, { type: "frame" }> } =>
+    (
+      c,
+    ): c is LayerTreeNode & { node: Extract<CanvasNode, { type: "frame" }> } =>
       c.node.type === "frame" && !!c.node.content?.pageLink,
   );
   const linkedProject = pageLinkChild
@@ -247,7 +249,12 @@ export function SemanticDocument({
         <section aria-labelledby="work-heading">
           <h2 id="work-heading">Work</h2>
           {workEntries.map((entry) => (
-            <Entry key={entry.node.id} entry={entry} depth={1} {...entryProps} />
+            <Entry
+              key={entry.node.id}
+              entry={entry}
+              depth={1}
+              {...entryProps}
+            />
           ))}
         </section>
       )}

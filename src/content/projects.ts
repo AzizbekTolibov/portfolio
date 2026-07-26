@@ -83,7 +83,8 @@ export const projects: Project[] = [
     slug: "harbor-analytics",
     title: "Harbor Analytics",
     year: "[YEAR]",
-    description: "Making a dense analytics product legible again, one chart at a time.",
+    description:
+      "Making a dense analytics product legible again, one chart at a time.",
     cover: {
       src: "/projects/harbor-analytics.svg",
       width: 1200,
