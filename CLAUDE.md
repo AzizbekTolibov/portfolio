@@ -259,11 +259,14 @@ order (Tab / arrow keys / Space) are **not** raw generation order — both
 are a pre-order walk of the layer tree (`src/lib/canvas/tree.ts`) whose
 siblings are sorted by final resolved position (y ascending, then x). This
 is scoped to siblings sharing a parent, not a global flatten: Home's
-About/Contact column and its project-tile grid are separate top-level
-groups that intentionally start at the same y beside each other, and a
-global position sort would interleave "About" into the middle of the
-grid's rows. Reordering _within_ a shared parent (drag a project's photos,
-say) is correctly reflected; reordering entire top-level sections isn't
+About/Contact column and its project-tile grid (wrapped in one top-level
+`work-group`) are separate top-level groups that intentionally start at
+the same y beside each other, and a global position sort would interleave
+"About" into the middle of the grid's rows. Every project tile is nested
+one level inside `work-group` specifically so reordering _within_ a shared
+parent (drag a tile to a new grid slot, drag a project's photos) is
+correctly reflected — a tile is not itself a top-level entry. Reordering
+entire top-level sections (dragging "About" above "Work") still isn't
 something free positioning is meant to express.
 
 ### Parallel semantic layer (accessibility + SEO)

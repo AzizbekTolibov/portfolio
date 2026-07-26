@@ -171,12 +171,6 @@ function Entry({
   );
 }
 
-function isProjectTileEntry(entry: LayerTreeNode): boolean {
-  return entry.children.some(
-    (c) => c.node.type === "frame" && !!c.node.content?.pageLink,
-  );
-}
-
 /**
  * The parallel semantic document: every frame's real content, in logical
  * reading order, as a genuine in-DOM `<main>` — landmarks, correct heading
@@ -228,10 +222,13 @@ export function SemanticDocument({
     );
   }
 
-  const workEntries = layerTree.filter(isProjectTileEntry);
-  const otherEntries = layerTree.filter((e) => !isProjectTileEntry(e));
-  const coverEntry = otherEntries.find((e) => e.node.id === "cover-group");
-  const restEntries = otherEntries.filter((e) => e.node.id !== "cover-group");
+  // Home's top level is exactly four entries in authored order — Cover,
+  // Work (every project tile, position-sorted inside it — see
+  // content/canvas.ts's work-group and tree.ts's buildLayerTree), About,
+  // Contact — so no special-casing is needed beyond picking cover-group
+  // out to sit right after <h1>; the rest render in their natural order.
+  const coverEntry = layerTree.find((e) => e.node.id === "cover-group");
+  const restEntries = layerTree.filter((e) => e.node.id !== "cover-group");
 
   return (
     <main
@@ -244,20 +241,6 @@ export function SemanticDocument({
       </h1>
 
       {coverEntry && <Entry entry={coverEntry} depth={0} {...entryProps} />}
-
-      {workEntries.length > 0 && (
-        <section aria-labelledby="work-heading">
-          <h2 id="work-heading">Work</h2>
-          {workEntries.map((entry) => (
-            <Entry
-              key={entry.node.id}
-              entry={entry}
-              depth={1}
-              {...entryProps}
-            />
-          ))}
-        </section>
-      )}
 
       {restEntries.map((entry) => (
         <Entry key={entry.node.id} entry={entry} depth={0} {...entryProps} />

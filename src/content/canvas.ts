@@ -281,6 +281,27 @@ function buildHomeNodes(): CanvasNode[] {
   const gridY = coverHeight + GRID_GUTTER;
   const yOffset = gridY - gridOriginY;
 
+  // A single top-level group wrapping every tile — without it, each tile
+  // group is its own top-level entry (see buildLayerTree's comment), and
+  // top-level entries keep generation order by design (see the
+  // About/Contact note below). That means dragging a tile to a new grid
+  // slot would move it visually but never update the Tab sequence or the
+  // screen-reader document, which still read `projects.json`'s array
+  // order — the exact accessibility trap layout overrides exist to close.
+  // Wrapping the tiles in "Work" makes them siblings under one parent, so
+  // position-sorted ordering (see groupChildrenByParent) actually applies
+  // to them. Sized via autoGridSize(), not hardcoded, so it still follows
+  // projects.length.
+  nodes.push({
+    id: "work-group",
+    type: "group",
+    name: "Work",
+    x: gridOriginX,
+    y: gridY,
+    width: gridSize.width,
+    height: gridSize.height,
+  });
+
   projects.forEach((project, i) => {
     const rect = tileRects[i];
     const tileX = rect.x;
@@ -294,6 +315,7 @@ function buildHomeNodes(): CanvasNode[] {
         id: groupId,
         type: "group",
         name: project.title,
+        parentId: "work-group",
         x: tileX,
         y: tileY,
         width: PROJECT_TILE_WIDTH,

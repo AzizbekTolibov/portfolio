@@ -47,12 +47,18 @@ export type LayerTreeNode = {
  * content, not navigation targets), nested by parentId. Each level's
  * children are position-sorted (via groupChildrenByParent) — but top-level
  * entries (no parentId) keep generation order, not a position sort: Home's
- * About/Contact column and its project-tile grid are independent top-level
- * groups that intentionally start at the same y beside each other, and a
- * global (y, x) sort would interleave "About" into the middle of the
- * grid's rows. Position ordering is correct *within* a shared parent
- * (reorder tiles, reorder a project's photos by drag); reordering entire
- * top-level sections isn't something free positioning is meant to express. */
+ * About/Contact column and its project-tile grid (wrapped in one
+ * "work-group" — see content/canvas.ts) are independent top-level groups
+ * that intentionally start at the same y beside each other, and a global
+ * (y, x) sort would interleave "About" into the middle of the grid's rows.
+ * Position ordering is correct *within* a shared parent — which is why
+ * every project tile is nested one level inside "work-group" rather than
+ * being its own top-level entry: reordering tiles by drag needs a common
+ * parent to be position-sorted under, or the fix wouldn't apply to the one
+ * interaction (dragging a tile to a new grid slot) it most needs to cover.
+ * Reordering entire top-level *sections* (dragging "About" above "Work")
+ * still isn't something free positioning is meant to express — that would
+ * need its own explicit ordering, not a side effect of x/y. */
 export function buildLayerTree(nodes: CanvasNode[]): LayerTreeNode[] {
   const navigable = nodes.filter(
     (n): n is NavigableNode => n.type === "frame" || n.type === "group",
