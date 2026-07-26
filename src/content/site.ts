@@ -10,6 +10,5 @@ export const site: SiteContent = {
     { label: "About", href: "/about" },
     { label: "Contact", href: "/#contact" },
   ],
-  // Still owed by Azizbek — see the placeholder list.
-  location: { display: "[CITY, COUNTRY]" },
+  location: { display: "Navoiy, Uzbekistan" },
 };

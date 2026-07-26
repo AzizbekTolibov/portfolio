@@ -11,8 +11,11 @@ function wideImage(slug: string, title: string): CaseStudyImage {
 
 /**
  * A light but complete case study (one section per beat, one full-bleed
- * image) for projects that don't need the full showcase treatment. See
- * `auravestCaseStudy` below for one built from every available block type.
+ * image) for projects that don't have real, verified case-study copy yet.
+ * Every section is an explicit `[BRACKETED — TO WRITE]` placeholder (see
+ * src/lib/canvas/placeholder-text.tsx) rather than prose that merely reads
+ * as a placeholder — so it renders in Figma's "missing" red everywhere,
+ * and can't be mistaken for a real, finished case study.
  */
 function defaultCaseStudy(slug: string, title: string): CaseStudy {
   return {
@@ -20,51 +23,28 @@ function defaultCaseStudy(slug: string, title: string): CaseStudy {
       {
         id: "overview",
         heading: "Overview",
-        blocks: [
-          {
-            type: "body",
-            text: `Placeholder overview copy for ${title} — context, timeline, and team.`,
-          },
-        ],
+        blocks: [{ type: "body", text: "[OVERVIEW — TO WRITE]" }],
       },
       {
         id: "problem",
         heading: "Problem",
-        blocks: [
-          {
-            type: "body",
-            text: "Placeholder problem statement — what wasn't working, and for whom.",
-          },
-        ],
+        blocks: [{ type: "body", text: "[PROBLEM — TO WRITE]" }],
       },
       {
         id: "research",
         heading: "Research & Insight",
-        blocks: [
-          {
-            type: "body",
-            text: "Placeholder research copy — what we learned before designing anything.",
-          },
-        ],
+        blocks: [{ type: "body", text: "[RESEARCH FINDINGS — TO WRITE]" }],
       },
       {
         id: "process",
         heading: "Process",
-        blocks: [
-          {
-            type: "body",
-            text: "Placeholder process copy — iterations and key decisions along the way.",
-          },
-        ],
+        blocks: [{ type: "body", text: "[PROCESS — TO WRITE]" }],
       },
       {
         id: "solution",
         heading: "Solution",
         blocks: [
-          {
-            type: "body",
-            text: "Placeholder solution copy — what shipped, and why it works.",
-          },
+          { type: "body", text: "[SOLUTION — TO WRITE]" },
           {
             type: "fullBleedImage",
             image: wideImage(slug, title),
@@ -75,20 +55,17 @@ function defaultCaseStudy(slug: string, title: string): CaseStudy {
       {
         id: "outcome",
         heading: "Outcome & Impact",
-        blocks: [
-          {
-            type: "body",
-            text: "Placeholder outcome copy — what changed, measured or observed.",
-          },
-        ],
+        blocks: [{ type: "body", text: "[OUTCOME — TO WRITE]" }],
       },
     ],
   };
 }
 
-// The one fully populated example — every block type in use, real-feeling
-// (if placeholder) prose. See the other five projects for the lighter,
-// still-complete default treatment.
+// Previously contained invented research findings, a fabricated user
+// quote, and made-up metrics presented as if real — none of that work was
+// actually done, and it must not read as though it were. Every claim below
+// is now an explicit `[BRACKETED — TO WRITE]` placeholder (rendered in
+// Figma's "missing" red) until Azizbek supplies the real case study.
 const auravestCaseStudy: CaseStudy = {
   sections: [
     {
@@ -97,11 +74,7 @@ const auravestCaseStudy: CaseStudy = {
       blocks: [
         {
           type: "body",
-          text: "Auravest is a personal finance app that had quietly become what it was trying to fix: a wall of charts nobody opened. Over eight weeks, I led design on a rebuild that traded dashboards for a handful of plain-language answers — where your money's going, and whether that's okay.",
-        },
-        {
-          type: "body",
-          text: "I worked alongside one PM and two engineers, from early research through the shipped redesign, and stayed on to design the onboarding flow that followed.",
+          text: "Auravest is a personal finance app that had quietly become what it was trying to fix: a wall of charts nobody opened. [OVERVIEW — TO WRITE]",
         },
       ],
     },
@@ -109,25 +82,15 @@ const auravestCaseStudy: CaseStudy = {
       id: "problem",
       heading: "Problem",
       blocks: [
-        {
-          type: "body",
-          text: "Retention looked fine on paper. Usage didn't. Most people opened Auravest once, glanced at a dashboard of six charts, and never came back — not because the data was wrong, but because none of it answered the one question they actually had.",
-        },
-        {
-          type: "pullQuote",
-          quote: "I don't want a report. I want to know if I'm okay.",
-          attribution: "Research participant, age 29",
-        },
+        { type: "body", text: "[PROBLEM — TO WRITE]" },
+        { type: "pullQuote", quote: "[RESEARCH QUOTE — TO WRITE]" },
       ],
     },
     {
       id: "research",
       heading: "Research & Insight",
       blocks: [
-        {
-          type: "body",
-          text: "Twelve interviews later, a pattern emerged: people weren't looking to analyze their finances, they were looking for reassurance. The dashboard was answering a question nobody asked, in a format that took effort to parse.",
-        },
+        { type: "body", text: "[RESEARCH FINDINGS — TO WRITE]" },
         {
           type: "imagePair",
           images: [
@@ -144,58 +107,31 @@ const auravestCaseStudy: CaseStudy = {
               alt: "Auravest research synthesis, board two",
             },
           ],
-          caption:
-            "Early synthesis: sorting recurring language from interview transcripts.",
+          caption: "[RESEARCH ARTIFACTS — TO WRITE]",
         },
       ],
     },
     {
       id: "process",
       heading: "Process",
-      blocks: [
-        {
-          type: "body",
-          text: "We prototyped three directions — a chat-like assistant, a single ‘health score,’ and a short daily digest — and tested rough versions of each with eight returning users. The digest won clearly, mostly for a reason we hadn't designed for: people wanted less to look at, not a smarter way to look at more.",
-        },
-        {
-          type: "heading",
-          text: "Narrowing to one screen",
-        },
-        {
-          type: "body",
-          text: "Every subsequent iteration was really an exercise in subtraction — cutting the six default charts down to the one number that changed useful behavior, and giving everything else a deliberately quieter home two taps away.",
-        },
-      ],
+      blocks: [{ type: "body", text: "[PROCESS — TO WRITE]" }],
     },
     {
       id: "solution",
       heading: "Solution",
       blocks: [
-        {
-          type: "body",
-          text: "The rebuilt home screen leads with one line — spendable, plainly stated — and a single supporting number for the month's trend. Charts still exist, but they're opt-in, not load-bearing.",
-        },
+        { type: "body", text: "[OUTCOME — TO WRITE]" },
         {
           type: "fullBleedImage",
           image: wideImage("auravest", "Auravest"),
-          caption:
-            "The rebuilt home screen, showing the single-line summary in place of the old chart wall.",
+          caption: "[OUTCOME — TO WRITE]",
         },
       ],
     },
     {
       id: "outcome",
       heading: "Outcome & Impact",
-      blocks: [
-        {
-          type: "body",
-          text: "Three months after launch, weekly active use was up 34%, and average session length was down — which, for this product, was the actual goal. People were checking in and moving on, instead of digging through data looking for an answer that was never quite there.",
-        },
-        {
-          type: "body",
-          text: "The single-line summary pattern has since been adopted across two other product areas at Auravest.",
-        },
-      ],
+      blocks: [{ type: "body", text: "[OUTCOME — TO WRITE]" }],
     },
   ],
 };
@@ -204,8 +140,8 @@ export const projects: Project[] = [
   {
     slug: "auravest",
     title: "Auravest",
-    role: "Product Design, Design Systems",
-    year: 2025,
+    role: "[ROLE]",
+    year: "[YEAR]",
     tags: ["Product Design", "Design Systems", "Fintech"],
     cover: {
       src: "/projects/auravest.svg",
@@ -217,21 +153,17 @@ export const projects: Project[] = [
       "A calmer way to track personal finances, rebuilt around clarity over dashboards.",
     caseStudy: auravestCaseStudy,
     featured: true,
-    team: "1 designer, 1 PM, 2 engineers",
-    duration: "8 weeks",
-    tools: ["Figma", "Figma Variables", "Maze"],
-    platform: "iOS, Android",
-    rationale: [
-      "Replaced the six-chart dashboard with one plain-language answer, since research showed people wanted reassurance, not analysis.",
-      "Kept detailed charts one tap away instead of removing them — opt-in depth beats forced simplicity.",
-      "Shipped the single-line summary pattern first; it's since spread to two other product areas.",
-    ],
+    team: "[TEAM]",
+    duration: "[DURATION]",
+    tools: ["[TOOLS]"],
+    platform: "[PLATFORM]",
+    rationale: ["[RATIONALE — TO WRITE]"],
   },
   {
     slug: "north-clinic",
     title: "North Clinic",
-    role: "UX Research, UI Design",
-    year: 2024,
+    role: "[ROLE]",
+    year: "[YEAR]",
     tags: ["Healthcare", "Mobile App", "UX Research"],
     cover: {
       src: "/projects/north-clinic.svg",
@@ -243,20 +175,17 @@ export const projects: Project[] = [
       "Booking and records for a small clinic network, designed for patients who don't consider themselves 'good with apps.'",
     caseStudy: defaultCaseStudy("north-clinic", "North Clinic"),
     featured: true,
-    team: "1 designer, 1 researcher, 3 engineers",
-    duration: "12 weeks",
-    tools: ["Figma", "UserTesting", "Notion"],
-    platform: "Web, iOS",
-    rationale: [
-      "Designed the booking flow around phone-call mental models, since most patients had never booked anything online before.",
-      "Moved records behind a single 'My Visits' entry point instead of a tabbed dashboard, to reduce decision points for low-confidence users.",
-    ],
+    team: "[TEAM]",
+    duration: "[DURATION]",
+    tools: ["[TOOLS]"],
+    platform: "[PLATFORM]",
+    rationale: ["[RATIONALE — TO WRITE]"],
   },
   {
     slug: "fieldnote",
     title: "Fieldnote",
-    role: "Product Design",
-    year: 2024,
+    role: "[ROLE]",
+    year: "[YEAR]",
     tags: ["Productivity", "Web App", "Branding"],
     cover: {
       src: "/projects/fieldnote.svg",
@@ -268,20 +197,17 @@ export const projects: Project[] = [
       "A quieter note-taking tool for field researchers, built around structure instead of folders.",
     caseStudy: defaultCaseStudy("fieldnote", "Fieldnote"),
     featured: true,
-    team: "1 designer, 2 engineers",
-    duration: "6 weeks",
-    tools: ["Figma", "Linear"],
-    platform: "Web, iPad",
-    rationale: [
-      "Replaced folders with tags and location/time metadata, since field researchers organize by context, not hierarchy.",
-      "Built offline-first capture as the default, not a fallback — connectivity in the field is the exception.",
-    ],
+    team: "[TEAM]",
+    duration: "[DURATION]",
+    tools: ["[TOOLS]"],
+    platform: "[PLATFORM]",
+    rationale: ["[RATIONALE — TO WRITE]"],
   },
   {
     slug: "loop-market",
     title: "Loop Market",
-    role: "UI Design, Design Systems",
-    year: 2023,
+    role: "[ROLE]",
+    year: "[YEAR]",
     tags: ["E-commerce", "Design Systems"],
     cover: {
       src: "/projects/loop-market.svg",
@@ -293,20 +219,17 @@ export const projects: Project[] = [
       "A component system for a marketplace's storefronts, so small sellers ship pages that don't look templated.",
     caseStudy: defaultCaseStudy("loop-market", "Loop Market"),
     featured: true,
-    team: "1 designer, 1 design engineer",
-    duration: "10 weeks",
-    tools: ["Figma", "Figma Variables", "Storybook"],
-    platform: "Web",
-    rationale: [
-      "Built the system around configurable tokens, not fixed templates, so storefronts could look distinct while staying on-brand.",
-      "Prioritized a restrained default component set over flexibility — most sellers never touched the advanced options anyway.",
-    ],
+    team: "[TEAM]",
+    duration: "[DURATION]",
+    tools: ["[TOOLS]"],
+    platform: "[PLATFORM]",
+    rationale: ["[RATIONALE — TO WRITE]"],
   },
   {
     slug: "harbor-analytics",
     title: "Harbor Analytics",
-    role: "UX Design, Data Visualization",
-    year: 2023,
+    role: "[ROLE]",
+    year: "[YEAR]",
     tags: ["B2B SaaS", "Data Visualization"],
     cover: {
       src: "/projects/harbor-analytics.svg",
@@ -317,20 +240,17 @@ export const projects: Project[] = [
     shortDescription:
       "Making a dense analytics product legible again, one chart at a time.",
     caseStudy: defaultCaseStudy("harbor-analytics", "Harbor Analytics"),
-    team: "1 designer, 1 PM, 4 engineers",
-    duration: "14 weeks",
-    tools: ["Figma", "Amplitude"],
-    platform: "Web",
-    rationale: [
-      "Redesigned charts around the one question each user role actually asks, instead of one dashboard for everyone.",
-      "Cut default chart count by half and moved the rest behind a customizable view, favoring legibility over completeness.",
-    ],
+    team: "[TEAM]",
+    duration: "[DURATION]",
+    tools: ["[TOOLS]"],
+    platform: "[PLATFORM]",
+    rationale: ["[RATIONALE — TO WRITE]"],
   },
   {
     slug: "kindred",
     title: "Kindred",
-    role: "Brand & Product Design",
-    year: 2022,
+    role: "[ROLE]",
+    year: "[YEAR]",
     tags: ["Branding", "Mobile App"],
     cover: {
       src: "/projects/kindred.svg",
@@ -341,13 +261,10 @@ export const projects: Project[] = [
     shortDescription:
       "Brand and product design for a family-messaging app, from wordmark to empty states.",
     caseStudy: defaultCaseStudy("kindred", "Kindred"),
-    team: "1 designer, 2 engineers",
-    duration: "9 weeks",
-    tools: ["Figma", "Illustrator"],
-    platform: "iOS, Android",
-    rationale: [
-      "Designed the wordmark and UI together, not in sequence, so the brand voice showed up in empty states and error copy too.",
-      "Chose warm, hand-drawn illustration over stock iconography to make a messaging app for families feel less corporate.",
-    ],
+    team: "[TEAM]",
+    duration: "[DURATION]",
+    tools: ["[TOOLS]"],
+    platform: "[PLATFORM]",
+    rationale: ["[RATIONALE — TO WRITE]"],
   },
 ];

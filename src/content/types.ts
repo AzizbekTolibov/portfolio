@@ -46,7 +46,7 @@ export type Project = {
   slug: string;
   title: string;
   role: string;
-  year: number;
+  year: string;
   tags: string[];
   cover: CaseStudyImage;
   shortDescription: string;

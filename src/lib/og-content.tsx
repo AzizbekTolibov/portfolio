@@ -57,7 +57,7 @@ export function ProjectOgImage({
 }: {
   title: string;
   role: string;
-  year: number;
+  year: string;
 }) {
   return (
     <div

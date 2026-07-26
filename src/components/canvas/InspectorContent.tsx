@@ -102,7 +102,7 @@ function ProjectInspector({
       <div className="flex flex-col gap-2 px-4 pb-2">
         {project.rationale.map((line, i) => (
           <p key={i} className="text-off-white/75 text-[11px] leading-relaxed">
-            {line}
+            <PlaceholderText text={line} />
           </p>
         ))}
       </div>

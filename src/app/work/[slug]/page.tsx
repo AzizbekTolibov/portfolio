@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { CaseStudySectionBlock } from "@/components/work/CaseStudyBlocks";
 import { site } from "@/content/site";
 import { projects } from "@/content/projects";
+import { PlaceholderText } from "@/lib/canvas/placeholder-text";
 
 type WorkPageProps = {
   params: Promise<{ slug: string }>;
@@ -71,7 +72,7 @@ export default async function WorkPage({ params }: WorkPageProps) {
       <main className="mx-auto max-w-[75rem] px-6 py-16 sm:py-24">
         <div className="bg-off-white rounded-lg px-6 py-10 sm:px-16 sm:py-20">
           <p className="text-mono-caption mb-sm font-mono tracking-[0.08em] text-gray-600 uppercase">
-            {project.role} — {project.year}
+            <PlaceholderText text={`${project.role} — ${project.year}`} />
           </p>
           <h1 className="text-display font-display mb-lg text-gray-900">
             {project.title}

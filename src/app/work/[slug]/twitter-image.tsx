@@ -21,7 +21,7 @@ export default async function Image({
     <ProjectOgImage
       title={project?.title ?? slug}
       role={project?.role ?? ""}
-      year={project?.year ?? new Date().getFullYear()}
+      year={project?.year ?? String(new Date().getFullYear())}
     />,
     size,
   );

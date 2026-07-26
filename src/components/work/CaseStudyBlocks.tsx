@@ -2,6 +2,7 @@ import Image from "next/image";
 import { PullQuote } from "@/components/PullQuote";
 import type { CaseStudyBlock, CaseStudySection } from "@/content/types";
 import { blurDataUrl } from "@/lib/canvas/blur";
+import { PlaceholderText } from "@/lib/canvas/placeholder-text";
 
 // Case-study placeholder images are all flat off-white fills.
 const CASE_STUDY_BLUR = blurDataUrl("#ECE9E2");
@@ -11,12 +12,14 @@ function Block({ block }: { block: CaseStudyBlock }) {
     case "heading":
       return (
         <h3 className="text-h2 font-display mt-lg mb-sm text-gray-900">
-          {block.text}
+          <PlaceholderText text={block.text} />
         </h3>
       );
     case "body":
       return (
-        <p className="text-body mb-md text-gray-700 last:mb-0">{block.text}</p>
+        <p className="text-body mb-md text-gray-700 last:mb-0">
+          <PlaceholderText text={block.text} />
+        </p>
       );
     case "pullQuote":
       return (
@@ -40,7 +43,7 @@ function Block({ block }: { block: CaseStudyBlock }) {
           />
           {block.caption && (
             <figcaption className="text-mono-caption mt-sm font-mono tracking-[0.08em] text-gray-600 uppercase">
-              {block.caption}
+              <PlaceholderText text={block.caption} />
             </figcaption>
           )}
         </figure>
@@ -66,7 +69,7 @@ function Block({ block }: { block: CaseStudyBlock }) {
           </div>
           {block.caption && (
             <figcaption className="text-mono-caption mt-sm font-mono tracking-[0.08em] text-gray-600 uppercase">
-              {block.caption}
+              <PlaceholderText text={block.caption} />
             </figcaption>
           )}
         </figure>

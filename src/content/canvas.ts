@@ -573,7 +573,7 @@ const CONTACT_HEIGHT = 450;
 const contactBody = [
   "The best work I've done started with someone who had a real problem and enough trust to figure it out together. If that's you, say hello.",
   contact.email,
-  "Freelance · open to projects · [CITY]",
+  "Freelance · open to projects · Navoiy",
 ].join("\n\n");
 
 const contactCluster: CanvasNode[] = [
