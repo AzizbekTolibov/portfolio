@@ -20,6 +20,10 @@ const FRAME_LABEL_MIN_ZOOM_PERCENT = 40;
 type CanvasProps = {
   spatialNodes: SpatialNode[];
   childrenByParent: Map<string, CanvasNode[]>;
+  /** nodeId → how many nested group levels sit below it before a leaf
+   * frame (see tree.ts's computeGroupLabelDepths) — lets a group's label
+   * clear a nested group's label, not just a nested frame's. */
+  groupLabelDepths: Map<string, number>;
   containerRef: React.RefObject<HTMLDivElement | null>;
   transform: MotionValue<string>;
   scale: MotionValue<number>;
@@ -42,6 +46,7 @@ type CanvasProps = {
 export function Canvas({
   spatialNodes,
   childrenByParent,
+  groupLabelDepths,
   containerRef,
   transform,
   scale,
@@ -101,6 +106,7 @@ export function Canvas({
               <Group
                 key={node.id}
                 node={node}
+                labelDepth={groupLabelDepths.get(node.id) ?? 1}
                 selected={selectedId === node.id}
                 hovered={hoveredId === node.id}
                 onHoverChange={(h) => onHoverFrame(h ? node.id : null)}

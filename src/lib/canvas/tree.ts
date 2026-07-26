@@ -91,3 +91,26 @@ export function flattenFrameOrder(tree: LayerTreeNode[]): string[] {
   visit(tree);
   return ids;
 }
+
+/** For every group in the tree, how many nested levels sit between it and
+ * a leaf frame — 1 for a group whose direct children are frames (About,
+ * Contact, a tile group), 2 for a group of groups ("work-group", wrapping
+ * the tile grid), and so on for whatever Phase 3 nests next. Frames aren't
+ * included; their label offset is fixed (see Frame.tsx's
+ * FRAME_LABEL_OFFSET). Two nested groups very often share an exact origin
+ * (a group's top-left commonly coincides with its first child's), so each
+ * extra level needs its own fixed screen-space clearance beyond the level
+ * below it, or their labels draw on top of each other — see Group.tsx. */
+export function computeGroupLabelDepths(
+  tree: LayerTreeNode[],
+): Map<string, number> {
+  const depths = new Map<string, number>();
+  function visit(entry: LayerTreeNode): number {
+    if (entry.node.type === "frame") return 0;
+    const depth = 1 + Math.max(0, ...entry.children.map(visit));
+    depths.set(entry.node.id, depth);
+    return depth;
+  }
+  tree.forEach(visit);
+  return depths;
+}

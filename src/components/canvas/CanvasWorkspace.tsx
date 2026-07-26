@@ -12,6 +12,7 @@ import {
 import { projects } from "@/content/projects";
 import {
   buildLayerTree,
+  computeGroupLabelDepths,
   flattenFrameOrder,
   groupChildrenByParent,
 } from "@/lib/canvas/tree";
@@ -85,6 +86,10 @@ export function CanvasWorkspace({ initialPageId }: CanvasWorkspaceProps) {
     [pageNodes],
   );
   const layerTree = useMemo(() => buildLayerTree(pageNodes), [pageNodes]);
+  const groupLabelDepths = useMemo(
+    () => computeGroupLabelDepths(layerTree),
+    [layerTree],
+  );
 
   // The FOCUSED-state stepping order for THIS page — derived from the same
   // layerTree the semantic layer reads (see tree.ts's flattenFrameOrder),
@@ -356,6 +361,7 @@ export function CanvasWorkspace({ initialPageId }: CanvasWorkspaceProps) {
     <Canvas
       spatialNodes={spatialNodes}
       childrenByParent={childrenByParent}
+      groupLabelDepths={groupLabelDepths}
       containerRef={containerRef}
       transform={transform}
       scale={scale}

@@ -2,15 +2,29 @@ import type { CanvasNode } from "@/content/canvas";
 import { labelTransform } from "@/lib/canvas/label-transform";
 
 /** How far above the group's top edge its label sits (screen px, capped
- * — see label-transform.ts). Bigger than a frame's -16px: a group's own
- * top-left often coincides exactly with its first child frame's top-left
- * (e.g. "About" and "Portrait", or a project cluster and its Cover), so
- * this has to clear both the frame label's own offset AND its rendered
- * height before the two can ever be mistaken for one label. */
-const GROUP_LABEL_OFFSET = -40;
+ * — see label-transform.ts), as a function of labelDepth (see tree.ts's
+ * computeGroupLabelDepths). A group's own top-left often coincides
+ * exactly with its first child's (e.g. "About" and "Portrait", "Work" and
+ * its first tile group), so each nesting level needs its own fixed
+ * clearance beyond the level below it, or two labels draw on top of each
+ * other. depth 1 (a group of frames — About, Contact, a single tile
+ * group) reaches -40, same as before this was depth-aware; depth 2 (a
+ * group of groups — "work-group", wrapping the tile grid) reaches -64,
+ * clearing a tile group's own -40 reach plus a label's worth of room;
+ * depth 3 would reach -88, and so on, so this doesn't need rediscovering
+ * the next time something nests a group inside a group inside a group. */
+const LABEL_OFFSET_LEAF = -16; // matches Frame.tsx's FRAME_LABEL_OFFSET
+const LABEL_OFFSET_STEP = -24;
+
+function labelOffsetForDepth(depth: number): number {
+  return LABEL_OFFSET_LEAF + LABEL_OFFSET_STEP * depth;
+}
 
 type GroupProps = {
   node: Extract<CanvasNode, { type: "group" }>;
+  /** How many nested group levels sit below this one before a leaf frame
+   * — see tree.ts's computeGroupLabelDepths. */
+  labelDepth: number;
   selected: boolean;
   hovered: boolean;
   onHoverChange: (hovered: boolean) => void;
@@ -23,7 +37,13 @@ type GroupProps = {
  * so they render, virtualize, and select on their own; this is just the
  * bounding chrome around them.
  */
-export function Group({ node, selected, hovered, onHoverChange }: GroupProps) {
+export function Group({
+  node,
+  labelDepth,
+  selected,
+  hovered,
+  onHoverChange,
+}: GroupProps) {
   return (
     <div
       data-frame-id={node.id}
@@ -41,7 +61,7 @@ export function Group({ node, selected, hovered, onHoverChange }: GroupProps) {
         <span
           className={`inline-block font-mono text-[11px] font-medium ${selected ? "text-selection" : "text-off-white/60"}`}
           style={{
-            transform: labelTransform(GROUP_LABEL_OFFSET),
+            transform: labelTransform(labelOffsetForDepth(labelDepth)),
             transformOrigin: "bottom left",
           }}
         >

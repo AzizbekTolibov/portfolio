@@ -179,6 +179,14 @@ const PROJECT_TILE_HEIGHT =
 const PROJECT_TILE_GUTTER = 100;
 const PROJECT_GRID_COLS = 4;
 
+// A Figma Section has padding around its contents, not a border traced
+// exactly on their bounding box — without it, "work-group" (the tile
+// grid's wrapper, see below) would share an identical origin with its
+// first tile group, and the two dashed borders (plus their labels) would
+// draw exactly on top of each other. Well under GRID_GUTTER, so it can't
+// eat into the clearance that already separates Work from Cover/About.
+const WORK_GROUP_PADDING = 80;
+
 function buildHomeNodes(): CanvasNode[] {
   const nodes: CanvasNode[] = [];
 
@@ -201,8 +209,14 @@ function buildHomeNodes(): CanvasNode[] {
   });
   const gridSize = autoGridSize(tileRects, gridOriginX, gridOriginY);
 
+  // "work-group" (below) pads outward from the raw tile-grid bounds — its
+  // left edge and width, computed here so coverWidth can match its actual
+  // (padded) right edge rather than the narrower unpadded grid.
+  const workGroupX = gridOriginX - WORK_GROUP_PADDING;
+  const workGroupWidth = gridSize.width + WORK_GROUP_PADDING * 2;
+
   // ---- site cover — spans the full composition width, banner-style ----
-  const coverWidth = COLUMN_WIDTH + GRID_GUTTER + gridSize.width;
+  const coverWidth = workGroupX + workGroupWidth;
   const coverHeight = 900;
 
   nodes.push(
@@ -290,16 +304,20 @@ function buildHomeNodes(): CanvasNode[] {
   // order — the exact accessibility trap layout overrides exist to close.
   // Wrapping the tiles in "Work" makes them siblings under one parent, so
   // position-sorted ordering (see groupChildrenByParent) actually applies
-  // to them. Sized via autoGridSize(), not hardcoded, so it still follows
-  // projects.length.
+  // to them. Sized via autoGridSize() + WORK_GROUP_PADDING, not hardcoded
+  // dimensions, so it still follows projects.length. Padded outward from
+  // the tiles' own bounds — the tiles keep their original, un-inset
+  // positions — rather than traced exactly on them, or its border and
+  // label would sit exactly on top of the first tile's own (see
+  // WORK_GROUP_PADDING's comment above).
   nodes.push({
     id: "work-group",
     type: "group",
     name: "Work",
-    x: gridOriginX,
-    y: gridY,
-    width: gridSize.width,
-    height: gridSize.height,
+    x: workGroupX,
+    y: gridY - WORK_GROUP_PADDING,
+    width: workGroupWidth,
+    height: gridSize.height + WORK_GROUP_PADDING * 2,
   });
 
   projects.forEach((project, i) => {
