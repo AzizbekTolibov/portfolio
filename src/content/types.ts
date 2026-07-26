@@ -1,4 +1,4 @@
-export type CaseStudyImage = {
+export type ProjectImage = {
   src: string;
   width: number;
   height: number;
@@ -6,62 +6,20 @@ export type CaseStudyImage = {
 };
 
 /**
- * The content primitives a case study can be built from. Sections are a
- * fixed sequence (see CASE_STUDY_SECTION_IDS); each holds an ordered list
- * of these blocks — mix and match freely within a section.
+ * A project is a Figma **page**: a title/year/description frame, then its
+ * photos — nothing else. `images` is a plain array of arbitrary length;
+ * every layout that reads it (the canvas page, the semantic mirror, the
+ * /work/[slug] SEO page) derives its shape from `images.length`, so adding
+ * a project — or a photo to an existing one — is a one-line content edit,
+ * never a spatial-layout edit.
  */
-export type CaseStudyBlock =
-  | { type: "heading"; text: string }
-  | { type: "body"; text: string }
-  | { type: "pullQuote"; quote: string; attribution?: string }
-  | { type: "fullBleedImage"; image: CaseStudyImage; caption?: string }
-  | {
-      type: "imagePair";
-      images: [CaseStudyImage, CaseStudyImage];
-      caption?: string;
-    };
-
-export const CASE_STUDY_SECTION_IDS = [
-  "overview",
-  "problem",
-  "research",
-  "process",
-  "solution",
-  "outcome",
-] as const;
-
-export type CaseStudySectionId = (typeof CASE_STUDY_SECTION_IDS)[number];
-
-export type CaseStudySection = {
-  id: CaseStudySectionId;
-  heading: string;
-  blocks: CaseStudyBlock[];
-};
-
-export type CaseStudy = {
-  sections: CaseStudySection[];
-};
-
 export type Project = {
   slug: string;
   title: string;
-  role: string;
   year: string;
-  tags: string[];
-  cover: CaseStudyImage;
-  shortDescription: string;
-  caseStudy: CaseStudy;
-  /** Shown in Home's Selected Work section. */
-  featured?: boolean;
-  /** Canvas right-panel inspector fields — repurposing Figma's property
-   * rows to show project metadata instead of CSS. */
-  team: string;
-  duration: string;
-  tools: string[];
-  platform: string;
-  /** 2-3 short lines on the key design decisions, shown in the inspector's
-   * "Rationale" section. */
-  rationale: string[];
+  description: string;
+  cover: ProjectImage;
+  images: ProjectImage[];
 };
 
 /** A labeled group of items — "Daily", "Regularly", etc. for tools, or

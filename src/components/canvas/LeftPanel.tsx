@@ -1,10 +1,15 @@
 "use client";
 
+import type { PageId, PageMeta } from "@/content/canvas";
 import type { LayerTreeNode } from "@/lib/canvas/tree";
 import { ChevronRightIcon } from "./icons";
 import { LayerBrowser } from "./LayerBrowser";
+import { PagesPanel } from "./PagesPanel";
 
 type LeftPanelProps = {
+  pages: PageMeta[];
+  currentPageId: PageId;
+  onSelectPage: (id: PageId) => void;
   layerTree: LayerTreeNode[];
   collapsed: boolean;
   onToggleCollapse: () => void;
@@ -14,9 +19,12 @@ type LeftPanelProps = {
   onHoverFrame: (frameId: string | null) => void;
 };
 
-/** Desktop's fixed side panel — the layer tree itself lives in
- * LayerBrowser, shared with the mobile bottom sheet. */
+/** Desktop's fixed side panel — Figma's Pages list at the top, the layer
+ * tree (LayerBrowser, shared with the mobile bottom sheet) below it. */
 export function LeftPanel({
+  pages,
+  currentPageId,
+  onSelectPage,
   layerTree,
   collapsed,
   onToggleCollapse,
@@ -42,6 +50,11 @@ export function LeftPanel({
 
   return (
     <div className="bg-panel border-off-white/10 flex w-60 shrink-0 flex-col border-r">
+      <PagesPanel
+        pages={pages}
+        currentPageId={currentPageId}
+        onSelectPage={onSelectPage}
+      />
       <LayerBrowser
         layerTree={layerTree}
         selectedId={selectedId}

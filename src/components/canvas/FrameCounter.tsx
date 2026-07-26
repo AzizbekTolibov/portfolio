@@ -8,9 +8,10 @@ function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-/** A subtle "03 / 25" readout shown only in FOCUSED state — the authored
- * frame order (see content/canvas.ts) is what it counts through, so it
- * always matches what scrolling/arrows/Space step across. */
+/** A subtle "03 / 25" readout shown only in FOCUSED state — per-page: it
+ * counts through the CURRENT page's own frame order (see
+ * CanvasWorkspace's frameOrder), so it always matches what
+ * scrolling/arrows/Space step across, and resets on every page switch. */
 export function FrameCounter({ index, total }: FrameCounterProps) {
   return (
     <div

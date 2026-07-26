@@ -116,6 +116,15 @@ export type EngineOptions = {
    * and Space step to the next/previous entry instead of panning/zooming
    * (the FOCUSED state in CLAUDE.md's navigation model). */
   frameOrder?: string[];
+  /** Frame id -> page id: clicking one of these frames (Home's project
+   * tiles) NAVIGATES to that Figma Page instead of the normal FOCUSED
+   * zoom-to-frame. Requires onNavigatePage. */
+  pageLinks?: Map<string, string>;
+  onNavigatePage?: (pageId: string) => void;
+  /** Called first on Escape; if it returns true, the engine's own default
+   * (deselect + zoom-to-fit) is skipped — used to make Escape on a project
+   * page go back to Home instead of just re-fitting the same page. */
+  onEscapeUp?: () => boolean;
 };
 
 export function useCanvasEngine<T extends EngineNode>(
@@ -127,6 +136,9 @@ export function useCanvasEngine<T extends EngineNode>(
   const maxZoom = options?.maxZoom ?? MAX_ZOOM;
   const isMobile = options?.isMobile ?? false;
   const frameOrder = options?.frameOrder;
+  const pageLinks = options?.pageLinks;
+  const onNavigatePage = options?.onNavigatePage;
+  const onEscapeUp = options?.onEscapeUp;
   const lodFlatMax = isMobile ? MOBILE_LOD_FLAT_MAX : LOD_FLAT_MAX;
   const lodThumbnailMax = isMobile
     ? MOBILE_LOD_THUMBNAIL_MAX
@@ -585,14 +597,21 @@ export function useCanvasEngine<T extends EngineNode>(
             "[data-frame-id]",
           ) as HTMLElement | null;
           const frameId = frameEl?.dataset.frameId ?? null;
-          setSelectedId(frameId);
-          if (frameId) {
-            // Clicking any frame enters FOCUSED state — the camera travels
-            // to fill ~80% of the viewport with it.
-            zoomToFrame(frameId);
+          const linkedPage = frameId ? pageLinks?.get(frameId) : undefined;
+          if (linkedPage && onNavigatePage) {
+            // A Home project tile: this is real navigation to another
+            // Figma Page, not a zoom — never select/zoom here.
+            onNavigatePage(linkedPage);
           } else {
-            // Empty canvas: back to OVERVIEW.
-            zoomToFit();
+            setSelectedId(frameId);
+            if (frameId) {
+              // Clicking any frame enters FOCUSED state — the camera
+              // travels to fill ~80% of the viewport with it.
+              zoomToFrame(frameId);
+            } else {
+              // Empty canvas: back to OVERVIEW.
+              zoomToFit();
+            }
           }
         }
         dragStateRef.current = { ...drag, active: false, pointerId: null };
@@ -618,6 +637,8 @@ export function useCanvasEngine<T extends EngineNode>(
     updateCursor,
     zoomToFrame,
     zoomToFit,
+    pageLinks,
+    onNavigatePage,
   ]);
 
   // ---- keyboard ----
@@ -651,6 +672,7 @@ export function useCanvasEngine<T extends EngineNode>(
       }
 
       if (e.key === "Escape") {
+        if (onEscapeUp?.()) return;
         setSelectedId(null);
         zoomToFit();
         return;
@@ -764,6 +786,7 @@ export function useCanvasEngine<T extends EngineNode>(
     resetZoom,
     focusedIndex,
     stepFrameDebounced,
+    onEscapeUp,
   ]);
 
   // Keep cursor in sync when hand tool toggles via keyboard (not just

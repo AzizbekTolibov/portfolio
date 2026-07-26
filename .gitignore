@@ -28,6 +28,9 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# graphify (generated knowledge-graph analysis, not source)
+/graphify-out/
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)

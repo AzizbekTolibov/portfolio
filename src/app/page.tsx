@@ -1,60 +1,40 @@
 import type { Metadata } from "next";
 import { CanvasWorkspace } from "@/components/canvas/CanvasWorkspace";
-import { canvasNodes } from "@/content/canvas";
+import { PAGES } from "@/content/canvas";
 import { projects } from "@/content/projects";
 import { site } from "@/content/site";
 
 type CanvasPageProps = {
-  searchParams: Promise<{ node?: string }>;
+  searchParams: Promise<{ page?: string }>;
 };
 
-function findNavigableNode(id: string) {
-  const match = canvasNodes.find((n) => n.id === id);
-  return match && (match.type === "frame" || match.type === "group")
-    ? match
-    : undefined;
-}
-
-// Deep links are query-driven ("/?node=<id>", Figma-style — see
+// Deep links are query-driven ("/?page=<slug>", Figma-style — see
 // CanvasWorkspace's URL sync), so this page is dynamically rendered per
 // request rather than statically generated; the per-project SEO surface
 // that *is* statically generated lives at /work/[slug] instead.
 export async function generateMetadata({
   searchParams,
 }: CanvasPageProps): Promise<Metadata> {
-  const { node } = await searchParams;
-  if (!node) return {};
+  const { page } = await searchParams;
+  if (!page) return {};
 
-  const match = findNavigableNode(node);
-  if (!match) return {};
+  const project = projects.find((p) => p.slug === page);
+  if (!project) return {};
 
-  const project = match.content?.projectSlug
-    ? projects.find((p) => p.slug === match.content?.projectSlug)
-    : undefined;
-
-  const title = project ? `${project.title} — ${match.name}` : match.name;
-  const description = project ? project.shortDescription : site.tagline;
-
+  const title = `${project.title} — ${project.year}`;
   return {
     title,
-    description,
-    openGraph: { title: `${title} — ${site.name}`, description },
-    twitter: { title: `${title} — ${site.name}`, description },
+    description: project.description,
+    openGraph: { title: `${title} — ${site.name}`, description: project.description },
+    twitter: { title: `${title} — ${site.name}`, description: project.description },
   };
 }
 
 export default async function CanvasPage({ searchParams }: CanvasPageProps) {
-  const { node } = await searchParams;
+  const { page } = await searchParams;
+  // Only a real page id counts as a deep link — an unrecognized ?page=
+  // value falls back to Home rather than rendering an empty page.
+  const initialPageId = page && PAGES.some((p) => p.id === page) ? page : undefined;
 
-  // No fallback to "cover" here — a bare "/" visit has no initialFrameId at
-  // all, so the engine/intro sequence land on the fit-all OVERVIEW (see
-  // CLAUDE.md's navigation model). A real deep link still lands FOCUSED on
-  // its named frame.
-  return (
-    <CanvasWorkspace
-      nodes={canvasNodes}
-      initialFrameId={node}
-      initialSelectedId={node}
-    />
-  );
+  return <CanvasWorkspace initialPageId={initialPageId} />;
 }

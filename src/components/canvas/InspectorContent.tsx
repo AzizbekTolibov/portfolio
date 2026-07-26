@@ -72,40 +72,23 @@ function FileInfoPanel() {
   );
 }
 
-function ProjectInspector({
-  node,
-  project,
-}: {
-  node: SpatialNode;
-  project: Project;
-}) {
+/** Shown whenever a project page is the current Figma Page — regardless
+ * of which frame (if any) is selected within it, since Title/Year/photo
+ * count describe the page itself, not any one frame on it. */
+function ProjectPageInfoPanel({ project }: { project: Project }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-4">
-      <SectionHeading>
-        {node.type === "group" ? "Group" : "Frame"}
-      </SectionHeading>
+      <SectionHeading>Page</SectionHeading>
       <div className="px-4 pb-3">
         <div className="text-off-white text-[13px] font-medium">
-          {node.name}
+          {project.title}
         </div>
       </div>
       <div className="bg-off-white/10 mx-4 h-px" />
       <SectionHeading>Properties</SectionHeading>
-      <PropertyRow label="Role" value={project.role} />
-      <PropertyRow label="Year" value={String(project.year)} />
-      <PropertyRow label="Team" value={project.team} />
-      <PropertyRow label="Duration" value={project.duration} />
-      <PropertyRow label="Tools" value={project.tools.join(", ")} />
-      <PropertyRow label="Platform" value={project.platform} />
-      <div className="bg-off-white/10 mx-4 my-3 h-px" />
-      <SectionHeading>Rationale</SectionHeading>
-      <div className="flex flex-col gap-2 px-4 pb-2">
-        {project.rationale.map((line, i) => (
-          <p key={i} className="text-off-white/75 text-[11px] leading-relaxed">
-            <PlaceholderText text={line} />
-          </p>
-        ))}
-      </div>
+      <PropertyRow label="Title" value={project.title} />
+      <PropertyRow label="Year" value={project.year} />
+      <PropertyRow label="Images" value={String(project.images.length)} />
     </div>
   );
 }
@@ -143,10 +126,12 @@ export function InspectorContent({
   project,
 }: {
   selectedNode: SpatialNode | null;
+  /** The CURRENT PAGE's project, if it's a project page — not derived from
+   * selectedNode, since a project page's info panel doesn't change based
+   * on which photo (if any) is focused within it. */
   project: Project | undefined;
 }) {
+  if (project) return <ProjectPageInfoPanel project={project} />;
   if (!selectedNode) return <FileInfoPanel />;
-  if (project)
-    return <ProjectInspector node={selectedNode} project={project} />;
   return <GenericFrameInspector node={selectedNode} />;
 }

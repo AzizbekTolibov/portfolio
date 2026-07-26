@@ -1,0 +1,6 @@
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" xmlns="http://www.w3.org/2000/svg" role="img">
+  <rect width="1600" height="1000" fill="#d26c51"/>
+  <rect x="64" y="850" width="56" height="4" fill="#ECE9E2"/>
+  <text x="64" y="904" font-family="Georgia, 'Times New Roman', serif" font-size="40" fill="#F4F2ED">Auravest</text>
+  <text x="64" y="948" font-family="'Geist Mono', monospace" font-size="16" letter-spacing="1" fill="#F4F2ED" opacity="0.7">PHOTO 2</text>
+</svg>

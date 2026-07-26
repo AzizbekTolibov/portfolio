@@ -1,21 +1,29 @@
 "use client";
 
 import { useEffect } from "react";
+import type { PageId, PageMeta } from "@/content/canvas";
 import type { LayerTreeNode } from "@/lib/canvas/tree";
 import { ChevronRightIcon } from "./icons";
 import { LayerBrowser } from "./LayerBrowser";
+import { PagesPanel } from "./PagesPanel";
 
 type MobileLayersSheetProps = {
+  pages: PageMeta[];
+  currentPageId: PageId;
+  onSelectPage: (id: PageId) => void;
   layerTree: LayerTreeNode[];
   selectedId: string | null;
   onSelectFrame: (frameId: string) => void;
   onClose: () => void;
 };
 
-/** Mobile's replacement for the left panel — the same LayerBrowser (tree,
- * tabs, keyboard behavior) as desktop, in a bottom sheet instead of a
- * fixed side panel. */
+/** Mobile's replacement for the left panel — the same Pages list +
+ * LayerBrowser (tree, tabs, keyboard behavior) as desktop, in a bottom
+ * sheet instead of a fixed side panel. */
 export function MobileLayersSheet({
+  pages,
+  currentPageId,
+  onSelectPage,
   layerTree,
   selectedId,
   onSelectFrame,
@@ -49,6 +57,15 @@ export function MobileLayersSheet({
             <ChevronRightIcon className="h-4 w-4 rotate-90" />
           </button>
         </div>
+        <PagesPanel
+          pages={pages}
+          currentPageId={currentPageId}
+          onSelectPage={(id) => {
+            onSelectPage(id);
+            onClose();
+          }}
+          dense={false}
+        />
         <LayerBrowser
           layerTree={layerTree}
           selectedId={selectedId}

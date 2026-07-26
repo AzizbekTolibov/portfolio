@@ -14,12 +14,19 @@
  */
 export function FrameLink({
   id,
+  href,
   current,
   onFocusFrame,
   onActivateFrame,
   children,
 }: {
   id: string;
+  /** Real fallback destination for no-JS/crawlers — a page-link (e.g. a
+   * Home project tile) points at that project's own "/?page=<slug>"; any
+   * other in-page frame has no dedicated URL of its own any more (frames
+   * aren't individually deep-linkable, only pages are), so callers pass
+   * the current page's own href as an honest, working fallback. */
+  href: string;
   current: boolean;
   onFocusFrame: (id: string) => void;
   onActivateFrame: (id: string) => void;
@@ -27,7 +34,7 @@ export function FrameLink({
 }) {
   return (
     <a
-      href={`/?node=${id}`}
+      href={href}
       aria-current={current ? "location" : undefined}
       onFocus={() => onFocusFrame(id)}
       onClick={(e) => {

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CaseStudySectionBlock } from "@/components/work/CaseStudyBlocks";
 import { site } from "@/content/site";
 import { projects } from "@/content/projects";
 import { PlaceholderText } from "@/lib/canvas/placeholder-text";
@@ -21,18 +21,18 @@ export async function generateMetadata({
   const project = projects.find((p) => p.slug === slug);
   if (!project) return {};
 
-  const title = `${project.title} — Case Study`;
+  const title = project.title;
   return {
     title,
-    description: project.shortDescription,
+    description: project.description,
     openGraph: {
       title: `${title} — ${site.name}`,
-      description: project.shortDescription,
+      description: project.description,
       type: "article",
     },
     twitter: {
       title: `${title} — ${site.name}`,
-      description: project.shortDescription,
+      description: project.description,
     },
   };
 }
@@ -41,8 +41,9 @@ export async function generateMetadata({
 // the canvas itself can't be (its content lives behind client-side
 // transforms). Styled as a single focused "frame" on the dark canvas —
 // same visual language as the interactive tool — with a link back into
-// it. Content is the project's full case study, unabridged (the canvas's
-// own frames only carry short excerpts).
+// it. Mirrors the project's page on the canvas exactly: title, year,
+// description, every photo with its alt text — nothing the canvas
+// doesn't also have, just laid out as a real document.
 export default async function WorkPage({ params }: WorkPageProps) {
   const { slug } = await params;
   const project = projects.find((p) => p.slug === slug);
@@ -62,7 +63,7 @@ export default async function WorkPage({ params }: WorkPageProps) {
           <span className="text-off-white truncate">{project.title}</span>
         </nav>
         <Link
-          href={project.featured ? `/?node=${project.slug}-cover` : "/"}
+          href={`/?page=${project.slug}`}
           className="bg-selection hover:bg-selection/90 text-off-black shrink-0 rounded px-3 py-1.5 text-[11px] font-medium"
         >
           Open in canvas
@@ -72,18 +73,29 @@ export default async function WorkPage({ params }: WorkPageProps) {
       <main className="mx-auto max-w-[75rem] px-6 py-16 sm:py-24">
         <div className="bg-off-white rounded-lg px-6 py-10 sm:px-16 sm:py-20">
           <p className="text-mono-caption mb-sm font-mono tracking-[0.08em] text-gray-600 uppercase">
-            <PlaceholderText text={`${project.role} — ${project.year}`} />
+            <PlaceholderText text={project.year} />
           </p>
           <h1 className="text-display font-display mb-lg text-gray-900">
             {project.title}
           </h1>
           <p className="text-body mb-2xl max-w-prose text-gray-700">
-            {project.shortDescription}
+            {project.description}
           </p>
 
-          {project.caseStudy.sections.map((section) => (
-            <CaseStudySectionBlock key={section.id} section={section} />
-          ))}
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+            {project.images.map((image) => (
+              <figure key={image.src}>
+                <Image
+                  src={image.src}
+                  width={image.width}
+                  height={image.height}
+                  alt={image.alt}
+                  unoptimized
+                  className="w-full rounded"
+                />
+              </figure>
+            ))}
+          </div>
         </div>
       </main>
     </div>

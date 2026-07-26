@@ -19,6 +19,13 @@ type TopBarProps = {
   onZoomToPercent: (percent: number) => void;
   onShare: () => void;
   isMobile?: boolean;
+  /** Set only on a project page — the breadcrumb's third segment
+   * ("Azizbek Tolibov / Portfolio 2026 / Auravest"). */
+  pageName?: string;
+  /** Present only on a project page. */
+  onBackToHome?: () => void;
+  onPrevProject?: () => void;
+  onNextProject?: () => void;
 };
 
 const ZOOM_PRESETS = [50, 100, 200];
@@ -142,6 +149,10 @@ export function TopBar({
   onZoomToPercent,
   onShare,
   isMobile = false,
+  pageName,
+  onBackToHome,
+  onPrevProject,
+  onNextProject,
 }: TopBarProps) {
   return (
     <header className="bg-panel border-off-white/10 relative z-20 flex h-12 shrink-0 items-center border-b px-3">
@@ -160,7 +171,15 @@ export function TopBar({
           {!isMobile && (
             <>
               <ChevronRightIcon className="h-3 w-3 shrink-0 opacity-50" />
-              <span>Portfolio 2026</span>
+              <span className={pageName ? "" : "text-off-white/80"}>
+                Portfolio 2026
+              </span>
+            </>
+          )}
+          {pageName && (
+            <>
+              <ChevronRightIcon className="h-3 w-3 shrink-0 opacity-50" />
+              <span className="text-off-white/80 truncate">{pageName}</span>
             </>
           )}
         </nav>
@@ -200,6 +219,45 @@ export function TopBar({
       )}
 
       <div className="flex flex-1 items-center justify-end gap-3">
+        {!isMobile && pageName && (
+          <div
+            role="group"
+            aria-label="Project navigation"
+            className="flex items-center gap-0.5"
+          >
+            <button
+              type="button"
+              onClick={onPrevProject}
+              disabled={!onPrevProject}
+              aria-label="Previous project"
+              title="Previous project"
+              className="text-off-white/70 hover:text-off-white flex h-7 items-center gap-1 rounded px-1.5 font-mono text-[11px] hover:bg-white/5 disabled:pointer-events-none disabled:opacity-30"
+            >
+              <ChevronRightIcon className="h-3 w-3 rotate-180" />
+              Prev
+            </button>
+            <button
+              type="button"
+              onClick={onBackToHome}
+              aria-label="Back to Home"
+              title="Back to Home"
+              className="text-off-white/70 hover:text-off-white flex h-7 items-center rounded px-2 font-mono text-[11px] hover:bg-white/5"
+            >
+              Home
+            </button>
+            <button
+              type="button"
+              onClick={onNextProject}
+              disabled={!onNextProject}
+              aria-label="Next project"
+              title="Next project"
+              className="text-off-white/70 hover:text-off-white flex h-7 items-center gap-1 rounded px-1.5 font-mono text-[11px] hover:bg-white/5 disabled:pointer-events-none disabled:opacity-30"
+            >
+              Next
+              <ChevronRightIcon className="h-3 w-3" />
+            </button>
+          </div>
+        )}
         <button
           type="button"
           onClick={onShare}

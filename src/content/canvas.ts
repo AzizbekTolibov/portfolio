@@ -1,15 +1,20 @@
 import { about, contact } from "./about";
 import { home } from "./home";
+import { autoGrid, autoGridSize } from "@/lib/canvas/auto-grid";
 import { projects } from "./projects";
 import { site } from "./site";
-import type { CaseStudySectionId, Project, PropertyGroup } from "./types";
+import type { Project, PropertyGroup } from "./types";
 
 /**
- * The canvas's content AND spatial composition, in one place — every node
- * that exists on the infinite canvas, where it sits, and what it holds.
- * This is the single source of truth: the visual canvas and the left
- * panel's layer tree are both just projections of this array (see
- * src/lib/canvas/tree.ts), so they can't drift apart.
+ * The canvas's content AND spatial composition, in one place — restructured
+ * into Figma **Pages**: Home (the project index) plus one page per project.
+ * Each page is generated fresh from `getPageNodes(pageId)`; nothing on any
+ * page is hand-positioned beyond a handful of macro-layout constants — the
+ * project grid (Home) and the photo grid (a project page) are both
+ * `autoGrid()` output, so their shape follows purely from array length (see
+ * src/lib/canvas/auto-grid.ts). Adding a 7th project, or a 5th photo to an
+ * existing one, is a one-line content edit in content/projects.ts — no
+ * coordinate ever needs touching.
  */
 
 export type CanvasNodeType = "frame" | "group" | "image" | "text";
@@ -17,10 +22,8 @@ export type CanvasNodeType = "frame" | "group" | "image" | "text";
 export type FrameKind =
   | "site-cover"
   | "project-cover"
-  | "research"
-  | "user-flow"
-  | "wireframes"
-  | "final-ui"
+  | "project-overview"
+  | "project-photo"
   | "about-portrait"
   | "about-bio"
   | "about-skills"
@@ -42,7 +45,6 @@ export type CanvasNode =
   | (BaseNode & {
       type: "frame";
       content?: {
-        projectSlug?: string;
         kind?: FrameKind;
         /** Shown as this frame's background at the low-detail ("flat")
          * LOD, so every frame reads as a distinct, legible block at
@@ -53,9 +55,14 @@ export type CanvasNode =
          * silently break if a frame's children ever get reordered. */
         flatLabel?: string;
         flatSublabel?: string;
+        /** Only set on Home's project tiles: clicking this frame
+         * NAVIGATES to that project's page (Figma Pages) instead of the
+         * normal FOCUSED zoom-to-frame — see use-canvas-engine's
+         * pageLinks option. */
+        pageLink?: string;
       };
     })
-  | (BaseNode & { type: "group"; content?: { projectSlug?: string } })
+  | (BaseNode & { type: "group"; content?: undefined })
   | (BaseNode & {
       type: "text";
       content: {
@@ -76,15 +83,30 @@ export type CanvasNode =
       content: { sections: { heading: string; groups: PropertyGroup[] }[] };
     });
 
-const featuredProjects = projects.filter((p) => p.featured);
+// ---- Pages (Figma's Pages concept) ----
 
-// Mirrors scripts/generate-canvas-placeholders.mjs's palette + shade() —
-// blur placeholders need to match each generated SVG's flat fill color.
+export type PageId = string; // "home" | a project slug
+
+export type PageMeta = { id: PageId; name: string };
+
+export const PAGES: PageMeta[] = [
+  { id: "home", name: "Home" },
+  ...projects.map((p) => ({ id: p.slug, name: p.title })),
+];
+
+export function isProjectPage(pageId: PageId): boolean {
+  return pageId !== "home";
+}
+
+// Mirrors scripts/generate-project-photos.mjs's palette + shade() — blur
+// placeholders need to match each generated SVG's flat fill color.
 const PROJECT_COLORS: Record<string, string> = {
   auravest: "#E07A5F",
   "north-clinic": "#3D405B",
   fieldnote: "#81B29A",
   "loop-market": "#F2CC8F",
+  "harbor-analytics": "#5B8A8A",
+  kindred: "#C97C9C",
 };
 
 function shade(hex: string, percent: number): string {
@@ -95,581 +117,509 @@ function shade(hex: string, percent: number): string {
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
-function sectionBody(project: Project, sectionId: CaseStudySectionId): string {
-  const section = project.caseStudy.sections.find((s) => s.id === sectionId);
-  const bodyBlock = section?.blocks.find((b) => b.type === "body");
-  return bodyBlock && bodyBlock.type === "body" ? bodyBlock.text : "";
-}
-
-// ---- Macro layout ----
-// One gutter constant for every top-level relationship (grid cluster-to-
-// cluster, and the gaps between Cover/About-Contact/the grid) — large
-// enough to guarantee a group label never reaches into whatever's above
-// it, even capped-and-zoomed-out at 10% (see Group.tsx/Frame.tsx for the
-// label-offset math this size is chosen to clear).
+// One gutter constant for every top-level relationship on Home, and for
+// the gap between a project page's title frame and its photo grid — large
+// enough that a group label (capped counter-scale, see label-transform.ts)
+// never reaches into whatever sits above it, even zoomed out to 10%.
 const GRID_GUTTER = 300;
 
-const CLUSTER_WIDTH = 2000;
-const CLUSTER_HEIGHT = 1300;
-const COLUMN_WIDTH = 1400;
+// ==================================================================
+// HOME — the project index
+// ==================================================================
 
-const GRID_WIDTH = CLUSTER_WIDTH * 2 + GRID_GUTTER;
+const COLUMN_WIDTH = 1400; // About/Contact width
+const NEUTRAL_ACCENT = "#2C2A25";
 
-// ---- Site cover — the nameplate, replaces a conventional hero ----
-// Spans the full composition width (About/Contact column + gutter + the
-// grid) as a banner across the top, so every row shares the same left/
-// right edges — no region sits apart from the rest, per CLAUDE.md's
-// navigation model ("one intentional layout," not islands of content).
+const PROJECT_TILE_WIDTH = 450;
+const PROJECT_TILE_IMAGE_HEIGHT = 560;
+const PROJECT_TILE_TEXT_HEIGHT = 110;
+const PROJECT_TILE_HEIGHT = PROJECT_TILE_IMAGE_HEIGHT + PROJECT_TILE_TEXT_HEIGHT;
+const PROJECT_TILE_GUTTER = 100;
+const PROJECT_GRID_COLS = 4;
 
-const COVER_X = 0;
-const COVER_Y = 0;
-const COVER_WIDTH = COLUMN_WIDTH + GRID_GUTTER + GRID_WIDTH;
-const COVER_HEIGHT = 900;
+function buildHomeNodes(): CanvasNode[] {
+  const nodes: CanvasNode[] = [];
 
-const siteCover: CanvasNode[] = [
-  {
-    id: "cover-group",
-    type: "group",
-    name: "Cover",
-    x: COVER_X,
-    y: COVER_Y,
-    width: COVER_WIDTH,
-    height: COVER_HEIGHT,
-  },
-  {
-    id: "cover",
-    type: "frame",
-    name: "Cover",
-    parentId: "cover-group",
-    x: COVER_X,
-    y: COVER_Y,
-    width: COVER_WIDTH,
-    height: COVER_HEIGHT,
-    content: {
-      kind: "site-cover",
-      // Dark, not a project hue — the entry point, not a fifth project.
-      accentColor: "#0E0E0E",
-      flatLabel: site.name,
-      flatSublabel: site.role,
+  // ---- project grid (auto-computed from projects.length) ----
+  const gridOriginX = COLUMN_WIDTH + GRID_GUTTER;
+  const gridOriginY = 0; // placeholder; corrected once COVER_HEIGHT is known below
+  const tileRects = autoGrid({
+    count: projects.length,
+    cols: PROJECT_GRID_COLS,
+    cellWidth: PROJECT_TILE_WIDTH,
+    cellHeight: PROJECT_TILE_HEIGHT,
+    gutter: PROJECT_TILE_GUTTER,
+    // Every tile is wrapped in an always-visible-label group (see below) —
+    // its capped counter-scale reach (offset * COUNTER_SCALE_CAP = 40 *
+    // 2.5 = 100 canvas units, see label-transform.ts) needs more row
+    // clearance than the column gutter, which a label never reaches into.
+    rowGutter: GRID_GUTTER,
+    originX: gridOriginX,
+    originY: gridOriginY,
+  });
+  const gridSize = autoGridSize(tileRects, gridOriginX, gridOriginY);
+
+  // ---- site cover — spans the full composition width, banner-style ----
+  const coverWidth = COLUMN_WIDTH + GRID_GUTTER + gridSize.width;
+  const coverHeight = 900;
+
+  nodes.push(
+    {
+      id: "cover-group",
+      type: "group",
+      name: "Cover",
+      x: 0,
+      y: 0,
+      width: coverWidth,
+      height: coverHeight,
     },
-  },
-  {
-    id: "cover-name",
-    type: "text",
-    name: "Name",
-    parentId: "cover",
-    x: COVER_X + 80,
-    y: COVER_Y + 280,
-    width: COVER_WIDTH - 160,
-    height: 140,
-    content: { text: site.name, variant: "display" },
-  },
-  {
-    id: "cover-role",
-    type: "text",
-    name: "Role",
-    parentId: "cover",
-    x: COVER_X + 80,
-    y: COVER_Y + 440,
-    width: COVER_WIDTH - 160,
-    height: 60,
-    content: { text: site.role, variant: "heading" },
-  },
-  {
-    id: "cover-location",
-    type: "text",
-    name: "Location",
-    parentId: "cover",
-    x: COVER_X + 80,
-    y: COVER_Y + 520,
-    width: COVER_WIDTH - 160,
-    height: 40,
-    content: { text: site.location.display, variant: "caption" },
-  },
-  {
-    id: "cover-statement",
-    type: "text",
-    name: "Positioning statement",
-    parentId: "cover",
-    x: COVER_X + 80,
-    y: COVER_Y + 620,
-    width: COVER_WIDTH - 160,
-    height: 80,
-    content: { text: home.heroHeadline, variant: "body" },
-  },
-];
+    {
+      id: "cover",
+      type: "frame",
+      name: "Cover",
+      parentId: "cover-group",
+      x: 0,
+      y: 0,
+      width: coverWidth,
+      height: coverHeight,
+      content: {
+        kind: "site-cover",
+        accentColor: "#0E0E0E",
+        flatLabel: site.name,
+        flatSublabel: site.role,
+      },
+    },
+    {
+      id: "cover-name",
+      type: "text",
+      name: "Name",
+      parentId: "cover",
+      x: 80,
+      y: 280,
+      width: coverWidth - 160,
+      height: 140,
+      content: { text: site.name, variant: "display" },
+    },
+    {
+      id: "cover-role",
+      type: "text",
+      name: "Role",
+      parentId: "cover",
+      x: 80,
+      y: 440,
+      width: coverWidth - 160,
+      height: 60,
+      content: { text: site.role, variant: "heading" },
+    },
+    {
+      id: "cover-location",
+      type: "text",
+      name: "Location",
+      parentId: "cover",
+      x: 80,
+      y: 520,
+      width: coverWidth - 160,
+      height: 40,
+      content: { text: site.location.display, variant: "caption" },
+    },
+    {
+      id: "cover-statement",
+      type: "text",
+      name: "Positioning statement",
+      parentId: "cover",
+      x: 80,
+      y: 620,
+      width: coverWidth - 160,
+      height: 80,
+      content: { text: home.heroHeadline, variant: "body" },
+    },
+  );
 
-// ---- Project clusters — one per featured project, in a tight 2x2 grid,
-// positioned to the right of the About/Contact column (below Cover). ----
+  // Now that coverHeight is known, re-anchor the grid to sit below it.
+  const gridY = coverHeight + GRID_GUTTER;
+  const yOffset = gridY - gridOriginY;
 
-const GRID_X = COLUMN_WIDTH + GRID_GUTTER;
-const GRID_Y = COVER_Y + COVER_HEIGHT + GRID_GUTTER;
-const CLUSTER_POSITIONS = [
-  { x: GRID_X, y: GRID_Y },
-  { x: GRID_X + CLUSTER_WIDTH + GRID_GUTTER, y: GRID_Y },
-  { x: GRID_X, y: GRID_Y + CLUSTER_HEIGHT + GRID_GUTTER },
-  { x: GRID_X + CLUSTER_WIDTH + GRID_GUTTER, y: GRID_Y + CLUSTER_HEIGHT + GRID_GUTTER },
-];
-const GUTTER = 100;
+  projects.forEach((project, i) => {
+    const rect = tileRects[i];
+    const tileX = rect.x;
+    const tileY = rect.y + yOffset;
+    const groupId = `${project.slug}-tile-group`;
+    const tileId = `${project.slug}-tile`;
+    const baseColor = PROJECT_COLORS[project.slug] ?? "#888888";
 
-function projectCluster(project: Project, index: number): CanvasNode[] {
-  const gx = CLUSTER_POSITIONS[index].x;
-  const gy = CLUSTER_POSITIONS[index].y;
-  const groupId = `${project.slug}-group`;
+    nodes.push(
+      {
+        id: groupId,
+        type: "group",
+        name: project.title,
+        x: tileX,
+        y: tileY,
+        width: PROJECT_TILE_WIDTH,
+        height: PROJECT_TILE_HEIGHT,
+      },
+      {
+        id: tileId,
+        type: "frame",
+        name: "Cover",
+        parentId: groupId,
+        x: tileX,
+        y: tileY,
+        width: PROJECT_TILE_WIDTH,
+        height: PROJECT_TILE_HEIGHT,
+        content: {
+          kind: "project-cover",
+          accentColor: baseColor,
+          flatLabel: project.title,
+          flatSublabel: project.year,
+          pageLink: project.slug,
+        },
+      },
+      {
+        id: `${tileId}-image`,
+        type: "image",
+        name: "Cover image",
+        parentId: tileId,
+        x: tileX,
+        y: tileY,
+        width: PROJECT_TILE_WIDTH,
+        height: PROJECT_TILE_IMAGE_HEIGHT,
+        content: {
+          src: project.cover.src,
+          alt: project.cover.alt,
+          blurColor: baseColor,
+        },
+      },
+      {
+        id: `${tileId}-title`,
+        type: "text",
+        name: "Title",
+        parentId: tileId,
+        x: tileX + 20,
+        y: tileY + PROJECT_TILE_IMAGE_HEIGHT + 16,
+        width: PROJECT_TILE_WIDTH - 40,
+        height: 44,
+        content: { text: project.title, variant: "heading" },
+      },
+      {
+        id: `${tileId}-year`,
+        type: "text",
+        name: "Year",
+        parentId: tileId,
+        x: tileX + 20,
+        y: tileY + PROJECT_TILE_IMAGE_HEIGHT + 16 + 44 + 4,
+        width: PROJECT_TILE_WIDTH - 40,
+        height: 24,
+        content: { text: project.year, variant: "caption" },
+      },
+    );
+  });
 
-  const coverId = `${project.slug}-cover`;
-  const researchId = `${project.slug}-research`;
-  const userFlowId = `${project.slug}-user-flow`;
-  const wireframesId = `${project.slug}-wireframes`;
-  const finalUiId = `${project.slug}-final-ui`;
+  // ---- About — a column beside the grid, same row start ----
+  const aboutY = gridY;
+
+  nodes.push(
+    {
+      id: "about-group",
+      type: "group",
+      name: "About",
+      x: 0,
+      y: aboutY,
+      width: COLUMN_WIDTH,
+      height: 700,
+    },
+    {
+      id: "about-portrait",
+      type: "frame",
+      name: "Portrait",
+      parentId: "about-group",
+      x: 0,
+      y: aboutY,
+      width: 450,
+      height: 700,
+      content: {
+        kind: "about-portrait",
+        accentColor: NEUTRAL_ACCENT,
+        flatLabel: "Portrait",
+      },
+    },
+    {
+      id: "about-portrait-image",
+      type: "image",
+      name: "Portrait image",
+      parentId: "about-portrait",
+      x: 0,
+      y: aboutY,
+      width: 450,
+      height: 700,
+      content: {
+        src: "/canvas/about-portrait.svg",
+        alt: `${about.name} portrait`,
+        blurColor: "#B08968",
+      },
+    },
+    {
+      id: "about-bio",
+      type: "frame",
+      name: "Bio",
+      parentId: "about-group",
+      x: 550,
+      y: aboutY,
+      width: 850,
+      height: 300,
+      content: {
+        kind: "about-bio",
+        accentColor: NEUTRAL_ACCENT,
+        flatLabel: "Bio",
+      },
+    },
+    {
+      id: "about-bio-text",
+      type: "text",
+      name: "Bio text",
+      parentId: "about-bio",
+      x: 580,
+      y: aboutY + 30,
+      width: 790,
+      height: 240,
+      content: {
+        text: about.bioMedium,
+        variant: "body",
+        semanticText: about.bioLong,
+      },
+    },
+    {
+      id: "about-skills",
+      type: "frame",
+      name: "Tools & Skills",
+      parentId: "about-group",
+      x: 550,
+      y: aboutY + 400,
+      width: 850,
+      height: 300,
+      content: {
+        kind: "about-skills",
+        accentColor: NEUTRAL_ACCENT,
+        flatLabel: "Tools & Skills",
+      },
+    },
+    {
+      id: "about-skills-properties",
+      type: "property-groups",
+      name: "Tools & skills",
+      parentId: "about-skills",
+      x: 580,
+      y: aboutY + 430,
+      width: 790,
+      height: 240,
+      content: {
+        sections: [
+          { heading: "Tools", groups: about.tools },
+          { heading: "Skills", groups: about.skills },
+        ],
+      },
+    },
+  );
+
+  // ---- Contact — directly beneath About, same column width ----
+  const contactY = aboutY + 700 + GRID_GUTTER;
+  const contactHeight = 450;
+
+  const contactBody = [
+    "The best work I've done started with someone who had a real problem and enough trust to figure it out together. If that's you, say hello.",
+    contact.email,
+    "Freelance · open to projects · Navoiy",
+  ].join("\n\n");
+
+  nodes.push(
+    {
+      id: "contact-group",
+      type: "group",
+      name: "Contact",
+      x: 0,
+      y: contactY,
+      width: COLUMN_WIDTH,
+      height: contactHeight,
+    },
+    {
+      id: "contact",
+      type: "frame",
+      name: "Contact",
+      parentId: "contact-group",
+      x: 0,
+      y: contactY,
+      width: COLUMN_WIDTH,
+      height: contactHeight,
+      content: {
+        kind: "contact",
+        accentColor: NEUTRAL_ACCENT,
+        flatLabel: "Contact",
+        flatSublabel: contact.email,
+      },
+    },
+    {
+      id: "contact-heading",
+      type: "text",
+      name: "Heading",
+      parentId: "contact",
+      x: 70,
+      y: contactY + 90,
+      width: COLUMN_WIDTH - 140,
+      height: 90,
+      content: { text: "Let's build something.", variant: "heading" },
+    },
+    {
+      id: "contact-body",
+      type: "text",
+      name: "Contact details",
+      parentId: "contact",
+      x: 70,
+      y: contactY + 200,
+      width: COLUMN_WIDTH - 140,
+      height: 200,
+      content: { text: contactBody, variant: "body" },
+    },
+  );
+
+  return nodes;
+}
+
+// ==================================================================
+// PROJECT PAGE — title/year/description, then an auto-computed
+// photo grid. Every position below is derived from
+// `project.images.length` via autoGrid(); nothing is hardcoded.
+// ==================================================================
+
+const TITLE_FRAME_HEIGHT = 420;
+const PHOTO_CELL_WIDTH = 760;
+const PHOTO_CELL_HEIGHT = 475;
+const PHOTO_GUTTER = 100;
+const PHOTO_COLS = 4;
+
+function buildProjectPageNodes(project: Project): CanvasNode[] {
   const baseColor = PROJECT_COLORS[project.slug] ?? "#888888";
-  // Supporting frames get a muted tint of the same hue — full saturation
-  // is reserved for the Cover, which is what should read first at a glance.
-  const mutedColor = shade(baseColor, 70);
+  const photoOriginY = TITLE_FRAME_HEIGHT + GRID_GUTTER;
 
-  // Cover + Research share the top row; User Flow / Wireframes / Final UI
-  // form the row below, all separated by 100px gutters.
-  const coverRect = { x: gx, y: gy, width: 720, height: 450 };
-  const researchRect = { x: gx + 820, y: gy, width: 720, height: 450 };
-  const userFlowRect = { x: gx, y: gy + 550, width: 600, height: 650 };
-  const wireframesRect = {
-    x: gx + 700,
-    y: gy + 550,
-    width: 600,
-    height: 650,
-  };
-  const finalUiRect = { x: gx + 1400, y: gy + 550, width: 600, height: 650 };
+  const photoRects = autoGrid({
+    count: project.images.length,
+    cols: PHOTO_COLS,
+    cellWidth: PHOTO_CELL_WIDTH,
+    cellHeight: PHOTO_CELL_HEIGHT,
+    gutter: PHOTO_GUTTER,
+    originX: 0,
+    originY: photoOriginY,
+  });
+  const photoGridSize = autoGridSize(photoRects, 0, photoOriginY);
+  const pageWidth = Math.max(photoGridSize.width, 900);
+  const pageHeight = photoOriginY + photoGridSize.height;
 
-  return [
+  const groupId = `${project.slug}-group`;
+  const overviewId = `${project.slug}-overview`;
+
+  const nodes: CanvasNode[] = [
     {
       id: groupId,
       type: "group",
       name: project.title,
-      x: gx,
-      y: gy,
-      width: CLUSTER_WIDTH,
-      height: CLUSTER_HEIGHT,
-      content: { projectSlug: project.slug },
+      x: 0,
+      y: 0,
+      width: pageWidth,
+      height: pageHeight,
     },
-
-    // Cover — full-bleed image with a title band along the bottom.
     {
-      id: coverId,
+      id: overviewId,
       type: "frame",
-      name: "Cover",
+      name: "Overview",
       parentId: groupId,
-      ...coverRect,
+      x: 0,
+      y: 0,
+      width: pageWidth,
+      height: TITLE_FRAME_HEIGHT,
       content: {
-        projectSlug: project.slug,
-        kind: "project-cover",
-        accentColor: baseColor,
+        kind: "project-overview",
+        accentColor: shade(baseColor, -10),
         flatLabel: project.title,
+        flatSublabel: project.year,
       },
     },
     {
-      id: `${coverId}-image`,
-      type: "image",
-      name: "Cover image",
-      parentId: coverId,
-      x: coverRect.x,
-      y: coverRect.y,
-      width: coverRect.width,
-      height: 360,
-      content: {
-        src: `/canvas/${project.slug}-cover.svg`,
-        alt: `${project.title} cover`,
-        blurColor: baseColor,
-      },
-    },
-    {
-      id: `${coverId}-title`,
+      id: `${overviewId}-title`,
       type: "text",
       name: "Title",
-      parentId: coverId,
-      x: coverRect.x + GUTTER / 2,
-      y: coverRect.y + 360 + 15,
-      width: coverRect.width - GUTTER,
-      height: 75,
-      content: { text: project.title, variant: "heading" },
-    },
-
-    // Research — image up top, the case study's Research section below.
-    {
-      id: researchId,
-      type: "frame",
-      name: "Research",
-      parentId: groupId,
-      ...researchRect,
-      content: {
-        projectSlug: project.slug,
-        kind: "research",
-        accentColor: mutedColor,
-      },
+      parentId: overviewId,
+      x: 60,
+      y: 60,
+      width: pageWidth - 120,
+      height: 100,
+      content: { text: project.title, variant: "display" },
     },
     {
-      id: `${researchId}-image`,
-      type: "image",
-      name: "Research image",
-      parentId: researchId,
-      x: researchRect.x,
-      y: researchRect.y,
-      width: researchRect.width,
-      height: 310,
-      content: {
-        src: `/canvas/${project.slug}-research.svg`,
-        alt: `${project.title} research artifacts`,
-        blurColor: shade(baseColor, -18),
-      },
-    },
-    {
-      id: `${researchId}-text`,
+      id: `${overviewId}-year`,
       type: "text",
-      name: "Research notes",
-      parentId: researchId,
-      x: researchRect.x + GUTTER / 2,
-      y: researchRect.y + 310 + 10,
-      width: researchRect.width - GUTTER,
-      height: 120,
-      content: { text: sectionBody(project, "research"), variant: "body" },
-    },
-
-    // User Flow — image up top, the case study's Process section below.
-    {
-      id: userFlowId,
-      type: "frame",
-      name: "User Flow",
-      parentId: groupId,
-      ...userFlowRect,
-      content: {
-        projectSlug: project.slug,
-        kind: "user-flow",
-        accentColor: mutedColor,
-      },
+      name: "Year",
+      parentId: overviewId,
+      x: 60,
+      y: 170,
+      width: pageWidth - 120,
+      height: 30,
+      content: { text: project.year, variant: "caption" },
     },
     {
-      id: `${userFlowId}-image`,
-      type: "image",
-      name: "User flow image",
-      parentId: userFlowId,
-      x: userFlowRect.x,
-      y: userFlowRect.y,
-      width: userFlowRect.width,
-      height: 450,
-      content: {
-        src: `/canvas/${project.slug}-user-flow.svg`,
-        alt: `${project.title} user flow`,
-        blurColor: shade(baseColor, -30),
-      },
-    },
-    {
-      id: `${userFlowId}-text`,
+      id: `${overviewId}-description`,
       type: "text",
-      name: "Process notes",
-      parentId: userFlowId,
-      x: userFlowRect.x + GUTTER / 2,
-      y: userFlowRect.y + 450 + 10,
-      width: userFlowRect.width - GUTTER,
-      height: 180,
-      content: { text: sectionBody(project, "process"), variant: "body" },
-    },
-
-    // Wireframes — visual only, no case-study section maps cleanly to it.
-    {
-      id: wireframesId,
-      type: "frame",
-      name: "Wireframes",
-      parentId: groupId,
-      ...wireframesRect,
-      content: {
-        projectSlug: project.slug,
-        kind: "wireframes",
-        accentColor: mutedColor,
-      },
-    },
-    {
-      id: `${wireframesId}-image`,
-      type: "image",
-      name: "Wireframes image",
-      parentId: wireframesId,
-      x: wireframesRect.x,
-      y: wireframesRect.y,
-      width: wireframesRect.width,
-      height: wireframesRect.height,
-      content: {
-        src: `/canvas/${project.slug}-wireframes.svg`,
-        alt: `${project.title} wireframes`,
-        blurColor: shade(baseColor, -42),
-      },
-    },
-
-    // Final UI — image up top, the case study's Solution section below.
-    {
-      id: finalUiId,
-      type: "frame",
-      name: "Final UI",
-      parentId: groupId,
-      ...finalUiRect,
-      content: {
-        projectSlug: project.slug,
-        kind: "final-ui",
-        accentColor: mutedColor,
-      },
-    },
-    {
-      id: `${finalUiId}-image`,
-      type: "image",
-      name: "Final UI image",
-      parentId: finalUiId,
-      x: finalUiRect.x,
-      y: finalUiRect.y,
-      width: finalUiRect.width,
-      height: 450,
-      content: {
-        src: `/canvas/${project.slug}-final-ui.svg`,
-        alt: `${project.title} final UI`,
-        blurColor: shade(baseColor, -12),
-      },
-    },
-    {
-      id: `${finalUiId}-text`,
-      type: "text",
-      name: "Solution notes",
-      parentId: finalUiId,
-      x: finalUiRect.x + GUTTER / 2,
-      y: finalUiRect.y + 450 + 10,
-      width: finalUiRect.width - GUTTER,
-      height: 180,
-      content: { text: sectionBody(project, "solution"), variant: "body" },
+      name: "Description",
+      parentId: overviewId,
+      x: 60,
+      y: 215,
+      width: pageWidth - 120,
+      height: 165,
+      content: { text: project.description, variant: "body" },
     },
   ];
+
+  project.images.forEach((image, i) => {
+    const rect = photoRects[i];
+    const photoId = `${project.slug}-photo-${i + 1}`;
+    nodes.push(
+      {
+        id: photoId,
+        type: "frame",
+        name: `Photo ${i + 1}`,
+        parentId: groupId,
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+        content: {
+          kind: "project-photo",
+          accentColor: shade(baseColor, (i % 4) * -12),
+          flatLabel: `Photo ${i + 1}`,
+        },
+      },
+      {
+        id: `${photoId}-image`,
+        type: "image",
+        name: "Photo image",
+        parentId: photoId,
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+        content: {
+          src: image.src,
+          alt: image.alt,
+          blurColor: baseColor,
+        },
+      },
+    );
+  });
+
+  return nodes;
 }
 
-const workClusters = featuredProjects.flatMap((project, i) =>
-  projectCluster(project, i),
-);
+// ==================================================================
 
-// ---- About — a column beside the grid, directly under Cover ----
-
-const ABOUT_X = 0;
-const ABOUT_Y = COVER_Y + COVER_HEIGHT + GRID_GUTTER;
-// A dark neutral, distinct from both Cover's near-black and the four
-// bright project accents — the "personal info" cluster's own identity.
-const NEUTRAL_ACCENT = "#2C2A25";
-
-const aboutCluster: CanvasNode[] = [
-  {
-    id: "about-group",
-    type: "group",
-    name: "About",
-    x: ABOUT_X,
-    y: ABOUT_Y,
-    width: COLUMN_WIDTH,
-    height: 700,
-  },
-  {
-    id: "about-portrait",
-    type: "frame",
-    name: "Portrait",
-    parentId: "about-group",
-    x: ABOUT_X,
-    y: ABOUT_Y,
-    width: 450,
-    height: 700,
-    content: {
-      kind: "about-portrait",
-      accentColor: NEUTRAL_ACCENT,
-      flatLabel: "Portrait",
-    },
-  },
-  {
-    id: "about-portrait-image",
-    type: "image",
-    name: "Portrait image",
-    parentId: "about-portrait",
-    x: ABOUT_X,
-    y: ABOUT_Y,
-    width: 450,
-    height: 700,
-    content: {
-      src: "/canvas/about-portrait.svg",
-      alt: `${about.name} portrait`,
-      blurColor: "#B08968",
-    },
-  },
-  {
-    id: "about-bio",
-    type: "frame",
-    name: "Bio",
-    parentId: "about-group",
-    x: ABOUT_X + 550,
-    y: ABOUT_Y,
-    width: 850,
-    height: 300,
-    content: {
-      kind: "about-bio",
-      accentColor: NEUTRAL_ACCENT,
-      flatLabel: "Bio",
-    },
-  },
-  {
-    id: "about-bio-text",
-    type: "text",
-    name: "Bio text",
-    parentId: "about-bio",
-    x: ABOUT_X + 580,
-    y: ABOUT_Y + 30,
-    width: 790,
-    height: 240,
-    content: {
-      text: about.bioMedium,
-      variant: "body",
-      semanticText: about.bioLong,
-    },
-  },
-  {
-    id: "about-skills",
-    type: "frame",
-    name: "Tools & Skills",
-    parentId: "about-group",
-    x: ABOUT_X + 550,
-    y: ABOUT_Y + 400,
-    width: 850,
-    height: 300,
-    content: {
-      kind: "about-skills",
-      accentColor: NEUTRAL_ACCENT,
-      flatLabel: "Tools & Skills",
-    },
-  },
-  {
-    id: "about-skills-properties",
-    type: "property-groups",
-    name: "Tools & skills",
-    parentId: "about-skills",
-    x: ABOUT_X + 580,
-    y: ABOUT_Y + 430,
-    width: 790,
-    height: 240,
-    content: {
-      sections: [
-        { heading: "Tools", groups: about.tools },
-        { heading: "Skills", groups: about.skills },
-      ],
-    },
-  },
-];
-
-// ---- Contact — directly beneath About, same column width ----
-
-const CONTACT_X = ABOUT_X;
-const CONTACT_Y = ABOUT_Y + 700 + GRID_GUTTER;
-// Sized to its actual content: heading (~46) + gap + body copy (~144,
-// 3 short paragraphs) ending around y=344 from the frame's own origin,
-// plus a bottom margin that balances the 90px top margin before the
-// heading — a tall frame with a mostly-empty lower half reads as
-// unfinished, not deliberate.
-const CONTACT_HEIGHT = 450;
-
-const contactBody = [
-  "The best work I've done started with someone who had a real problem and enough trust to figure it out together. If that's you, say hello.",
-  contact.email,
-  "Freelance · open to projects · Navoiy",
-].join("\n\n");
-
-const contactCluster: CanvasNode[] = [
-  {
-    id: "contact-group",
-    type: "group",
-    name: "Contact",
-    x: CONTACT_X,
-    y: CONTACT_Y,
-    width: COLUMN_WIDTH,
-    height: CONTACT_HEIGHT,
-  },
-  {
-    id: "contact",
-    type: "frame",
-    name: "Contact",
-    parentId: "contact-group",
-    x: CONTACT_X,
-    y: CONTACT_Y,
-    width: COLUMN_WIDTH,
-    height: CONTACT_HEIGHT,
-    content: {
-      kind: "contact",
-      accentColor: NEUTRAL_ACCENT,
-      flatLabel: "Contact",
-      flatSublabel: contact.email,
-    },
-  },
-  {
-    id: "contact-heading",
-    type: "text",
-    name: "Heading",
-    parentId: "contact",
-    x: CONTACT_X + 70,
-    y: CONTACT_Y + 90,
-    width: COLUMN_WIDTH - 140,
-    height: 90,
-    content: { text: "Let's build something.", variant: "heading" },
-  },
-  {
-    id: "contact-body",
-    type: "text",
-    name: "Contact details",
-    parentId: "contact",
-    x: CONTACT_X + 70,
-    y: CONTACT_Y + 200,
-    width: COLUMN_WIDTH - 140,
-    height: 200,
-    content: { text: contactBody, variant: "body" },
-  },
-];
-
-export const canvasNodes: CanvasNode[] = [
-  ...siteCover,
-  ...workClusters,
-  ...aboutCluster,
-  ...contactCluster,
-];
-
-/**
- * The explicit viewing order for FOCUSED-state navigation (scroll / arrow
- * keys / Space step through this list one at a time) and the mobile
- * Prev/Next bar. Hand-authored on purpose — see CLAUDE.md's navigation
- * model — so the sequence can be reordered here without touching spatial
- * coordinates or component code.
- */
-export const FRAME_ORDER: string[] = [
-  "cover",
-
-  "auravest-cover",
-  "auravest-research",
-  "auravest-user-flow",
-  "auravest-wireframes",
-  "auravest-final-ui",
-
-  "north-clinic-cover",
-  "north-clinic-research",
-  "north-clinic-user-flow",
-  "north-clinic-wireframes",
-  "north-clinic-final-ui",
-
-  "fieldnote-cover",
-  "fieldnote-research",
-  "fieldnote-user-flow",
-  "fieldnote-wireframes",
-  "fieldnote-final-ui",
-
-  "loop-market-cover",
-  "loop-market-research",
-  "loop-market-user-flow",
-  "loop-market-wireframes",
-  "loop-market-final-ui",
-
-  "about-portrait",
-  "about-bio",
-  "about-skills",
-
-  "contact",
-];
+export function getPageNodes(pageId: PageId): CanvasNode[] {
+  if (pageId === "home") return buildHomeNodes();
+  const project = projects.find((p) => p.slug === pageId);
+  return project ? buildProjectPageNodes(project) : [];
+}

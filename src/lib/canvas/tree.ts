@@ -23,7 +23,8 @@ export type LayerTreeNode = {
   children: LayerTreeNode[];
 };
 
-/** The left panel's layer tree, derived directly from canvasNodes: only
+/** The left panel's layer tree, derived directly from the current page's
+ * nodes (see content/canvas.ts's getPageNodes): only
  * frame/group nodes are navigable destinations (sticky/text/image are
  * content, not navigation targets), nested by parentId. */
 export function buildLayerTree(nodes: CanvasNode[]): LayerTreeNode[] {

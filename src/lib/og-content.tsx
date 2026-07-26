@@ -52,11 +52,9 @@ export function SiteOgImage({ name, role }: { name: string; role: string }) {
 
 export function ProjectOgImage({
   title,
-  role,
   year,
 }: {
   title: string;
-  role: string;
   year: string;
 }) {
   return (
@@ -81,7 +79,7 @@ export function ProjectOgImage({
           marginBottom: 28,
         }}
       >
-        {role} — {year}
+        {year}
       </div>
       <div
         style={{

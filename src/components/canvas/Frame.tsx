@@ -45,6 +45,7 @@ const TEXT_VARIANT_CLASSES: Record<string, string> = {
 const FLAT_LABEL_SIZE: Partial<Record<string, { primary: number; sub: number }>> = {
   "site-cover": { primary: 96, sub: 34 },
   "project-cover": { primary: 72, sub: 28 },
+  "project-overview": { primary: 72, sub: 28 },
 };
 const FLAT_LABEL_SIZE_DEFAULT = { primary: 40, sub: 22 };
 
@@ -72,7 +73,7 @@ function FlatFrame({ frame }: { frame: FrameProps["node"] }) {
               className="font-sans leading-tight opacity-80"
               style={{ fontSize: size.sub, color: textColor }}
             >
-              {flatSublabel}
+              <PlaceholderText text={flatSublabel} />
             </span>
           )}
         </div>

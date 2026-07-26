@@ -9,9 +9,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${siteUrl}/`, changeFrequency: "monthly", priority: 1 },
   ];
 
-  // /work/[slug] is the crawlable surface for every project — including
-  // the ones not visualized on the canvas (only `featured` projects get a
-  // cluster there; every project gets a case-study page here).
+  // /work/[slug] is the crawlable surface for every project — every
+  // project also gets its own Figma Page on the canvas (see PAGES in
+  // content/canvas.ts).
   const projectRoutes: MetadataRoute.Sitemap = projects.map((project) => ({
     url: `${siteUrl}/work/${project.slug}`,
     changeFrequency: "monthly",

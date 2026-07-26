@@ -1,47 +1,71 @@
 # Portfolio — Azizbek Tolibov
 
 Personal portfolio for **Azizbek Tolibov**, a UI/UX designer. Built as a
-single **infinite Figma canvas** you pan and zoom across — not a page you
-scroll.
+Figma file you open: a **Pages** list on the left, and an infinite canvas
+per page that you pan and zoom across — not a document you scroll.
 
 ## Concept — "The Figma File"
 
-The portfolio **is** a Figma file. You don't scroll a document; you pan and
-zoom across an infinite 2D canvas of frames. Every piece of content — the
-nameplate, each project cover, each case study, the bio, the contact card —
-is a **frame positioned in canvas space**. Navigation is spatial: you move
-the viewport, or you jump ("fly to") a frame. The metaphor is total, not
-decorative — it determines the entire information architecture and every
-navigation affordance.
+The portfolio **is** a Figma file, not a metaphor layered on top of one.
+Figma files have **Pages** — Home is one page, and every project is its
+own page — and each page is its own infinite 2D canvas of frames. You
+don't scroll a document; within a page you pan and zoom, and between
+pages you switch in the Pages panel (or click a page's own content, or
+use Prev/Next project). The metaphor is total, not decorative — it
+determines the entire information architecture and every navigation
+affordance, including the parts that would look like "conventional
+portfolio chrome" if you squinted: the breadcrumb and Prev/Next controls
+below are Figma's own top-bar and page-switching UI, not a portfolio nav
+bar wearing a disguise.
 
 The design work is presented in the tool the design work was made in. That is
 the whole idea.
 
 ## The Hard Rule
 
-**If a feature exists on a conventional portfolio, it does not exist here.**
+**If a feature exists on a conventional portfolio, it does not exist here
+in portfolio form — it exists in Figma form, if Figma has an equivalent.**
 
 This is the governing constraint. Before adding anything, ask: "does a normal
-portfolio have this?" If yes, it is forbidden. Non-exhaustively, there is:
+portfolio have this, and does Figma have something that looks similar for a
+different reason?" If a normal portfolio has it and Figma doesn't have an
+equivalent, it's forbidden. Non-exhaustively, there is:
 
-- **no** navbar, hamburger menu, or link list
-- **no** hero section, "scroll to explore" cue, or vertical scroll at all
-- **no** work grid / gallery / card list
+- **no** hamburger menu, nav link list, or "sections" of a single scrolling
+  document
+- **no** hero section, "scroll to explore" cue, or vertical scroll within a
+  page
+- **no** work grid / gallery / card list — Home's project tiles are laid out
+  as Figma frames in a grid, auto-computed from data, the same way any
+  Figma page's frames might happen to be arranged in a grid
 - **no** about section or contact form
-- **no** footer, breadcrumbs, or page-to-page route transitions
-- **no** "sections" of any kind — a section is a page-document idea
+- **no** footer
 
-What replaces them is always **spatial**: content is frames in 2D space;
-"navigation" is pan / zoom / fly-to-frame; "sections" are regions of the
-canvas. A project isn't a card in a grid — it's a frame you pan to. The bio
-isn't an About page — it's a frame. Contact isn't a form — it's a frame with
-an email on it (a business card), never a `<form>`.
+What **is** present, because Figma itself has it:
+
+- **A Pages panel** (top of the left sidebar) and **a breadcrumb**
+  (`Azizbek Tolibov / Portfolio 2026 / Auravest`) — this is Figma's own
+  file/page chrome, pixel-matched, not a portfolio nav bar. The test that
+  keeps this honest: would Figma show this exact element, with this exact
+  behavior, for a file that had nothing to do with a portfolio? Yes — every
+  Figma file has a Pages list and this breadcrumb shape.
+- **Prev/Next project + Back to Home** in the top bar, present only on a
+  project page — the closest real-world analogue is Figma's own
+  "back to community/file" affordance, adapted for a linear project
+  sequence. This is the one piece of chrome that's genuinely
+  portfolio-motivated rather than a literal Figma pattern; it's kept
+  minimal (three small buttons, not a nav bar) and confined to project
+  pages only.
+
+What replaces conventional portfolio ideas is otherwise always **spatial**:
+content is frames in 2D space; "navigation" within a page is pan / zoom /
+fly-to-frame; a project isn't a card in a grid — it's a page you switch to,
+containing frames you pan to.
 
 The one carve-out: **accessibility and crawlability are not "portfolio
 features"** — they are baseline requirements, and they are delivered through
 the invisible **semantic layer** (below), never through visible conventional
-chrome. Providing a screen-reader document does not violate the rule;
-adding a visible nav menu does.
+chrome. Providing a screen-reader document does not violate the rule.
 
 ## Non-negotiables
 
@@ -50,52 +74,69 @@ These are hard requirements, not goals. A change that breaks one is wrong.
 1. **60 fps pan / zoom.** The viewport must stay smooth on a laptop
    trackpad. This dictates the whole rendering approach (see Architecture →
    Viewport). Transform-only movement, no per-frame React re-render, no
-   layout thrash.
+   layout thrash. Switching pages is the one exception allowed to be a
+   discrete, non-continuous transition (a zoom-to-fit animation, not a
+   remount) — it's a deliberate "load a different page" moment, not
+   something that needs to stay smooth mid-gesture.
 2. **Keyboard navigable.** Everything reachable by pointer is reachable by
    keyboard. Tab moves through frames/links in a logical order; focusing a
    frame flies the viewport to it; explicit pan/zoom keys exist, and in
    FOCUSED state (see Navigation model below) arrows/Space step to the
-   next/previous frame — the "next frame" affordance is real, not just a
-   pan key.
+   next/previous frame **on the current page**. Escape on a project page
+   returns to Home; Escape on Home deselects/re-fits.
 3. **Screen-reader readable.** A blind user gets a clean, ordered document
    with landmarks, correct heading order, and alt text — via the semantic
-   layer. The canvas's absolute 2D positioning never leaks into reading
-   order.
+   layer, regenerated per page. The canvas's absolute 2D positioning never
+   leaks into reading order.
 4. **Crawlable.** Server-rendered real HTML — real text, real headings, real
    `<a href>` links — so search engines and link unfurlers get everything.
    The content is not trapped behind canvas JavaScript.
-5. **Deep-linkable frames.** Every frame has its own URL that loads the
-   canvas already focused on it (and sets that frame's `<title>`/description/
-   OG). Sharing a project link lands the visitor on that project.
+5. **Deep-linkable pages.** Every page (Home, or any project) has its own
+   URL that loads the canvas already on it, zoomed to fit, with that page's
+   `<title>`/description/OG. Sharing a project link lands the visitor on
+   that project's page. (Individual frames are no longer separately
+   deep-linkable — only pages are; a page's own fit-all view is its
+   "default state" now, the same way it was for the whole canvas before
+   Pages existed.)
 
 ## Architecture
 
-### Single canvas route
+### One route, many Pages
 
-There is exactly **one** route: the canvas. It is implemented as an optional
-catch-all — `src/app/[[...frame]]/page.tsx` — so one page component serves
-every URL:
+There is exactly **one** interactive route — `src/app/page.tsx` — serving
+every URL via a query param, Figma-style:
 
-- `/` → the whole canvas, default viewport
-- `/[slug]` (e.g. `/auravest`) → canvas focused on that project's frame
-- `/about`, `/contact` → canvas focused on those frames
+- `/` → Home
+- `/?page=<slug>` (e.g. `/?page=auravest`) → that project's page, already
+  zoomed to fit
 
-`generateStaticParams()` enumerates the root plus every project slug and
-special frame, so each frame URL is **statically pre-rendered** (SSG) and
-`generateMetadata()` gives each one frame-specific title/description/OG.
-Same single component, many crawlable, deep-linkable, pre-rendered URLs —
-this is how "single canvas route" and "deep-linkable + crawlable" reconcile.
-The `frame` param sets the canvas's **initial viewport transform** and the
-semantic layer's initial focus.
+`content/canvas.ts` exports `PAGES: PageMeta[]` (Home + one entry per
+project) and `getPageNodes(pageId): CanvasNode[]`, which generates that
+page's frames fresh on every call. `CanvasWorkspace` holds `currentPageId`
+as React state; switching it recomputes `spatialNodes` for the new page and
+triggers `zoomToFit()` — the **same** engine instance stays mounted across
+a page switch (no remount), it just receives a different `frames` array
+and re-fits to it. `generateMetadata` in `page.tsx` reads `?page=` server-side
+so a fresh load of a project URL gets that project's title/description in
+the initial HTML.
+
+A **separate, fully static** SEO surface lives at `/work/[slug]`
+(`generateStaticParams` over every project) — a real server-rendered
+document (title, year, description, every photo with alt text) for crawlers
+and unfurlers that don't execute the canvas's client JS at all. It mirrors
+exactly what a project's page contains — nothing more.
 
 ### Transform-based viewport
 
-Canvas space is a large 2D coordinate system in **canvas units**. Frames
-have a position `(x, y)` and size `(w, h)` in those units. The viewport is a
-single state `{ x, y, scale }` applied as **one CSS transform on a parent
-"world" container**: `translate(x, y) scale(scale)`. Frames are absolutely
-positioned children inside that container, so moving the viewport moves one
-transform — the GPU composites it, nothing re-lays-out.
+Canvas space is a large 2D coordinate system in **canvas units**, scoped to
+whichever page is currently active — Home's coordinate space and a project
+page's coordinate space are unrelated; frame ids and positions don't need
+to (and don't) line up across pages. Frames have a position `(x, y)` and
+size `(w, h)` in those units. The viewport is a single state `{ x, y, scale
+}` applied as **one CSS transform on a parent "world" container**:
+`translate(x, y) scale(scale)`. Frames are absolutely positioned children
+inside that container, so moving the viewport moves one transform — the
+GPU composites it, nothing re-lays-out.
 
 **The 60 fps discipline (non-negotiable #1):**
 
@@ -105,39 +146,53 @@ transform — the GPU composites it, nothing re-lays-out.
 - Drive the transform with **Framer Motion motion values**
   (`useMotionValue` for x/y/scale, applied via `motion.div style={{ x, y,
 scale }}`). Pointer/wheel handlers write to the motion values directly —
-  **React does not re-render on every pointer move.** "Fly to frame" is an
-  `animate()` on those same motion values.
+  **React does not re-render on every pointer move.** "Fly to frame" (and
+  "switch page") is an `animate()` on those same motion values.
 - `will-change: transform` on the world container only; use sparingly.
-- If frame count grows, **virtualize** off-screen frames (skip rendering
-  frames far outside the viewport) rather than letting the DOM balloon.
+- Off-screen frames are virtualized (skipped from the DOM) based on the
+  current viewport bounds — with a whole page's frames now typically
+  numbering in the dozens rather than hundreds, this matters less than it
+  did pre-Pages, but the mechanism (`src/lib/canvas/use-canvas-engine.ts`)
+  is unchanged.
 
-### Navigation model — OVERVIEW and FOCUSED
+### Navigation model — Pages, then OVERVIEW and FOCUSED
 
-Free-roam panning (drag around an empty canvas hunting for content) is not
-the primary way to navigate — it's an escape hatch, never a requirement.
-The canvas has exactly two states:
+**Pages** is the top-level navigation unit (see above) — switching pages is
+a discrete jump, not a continuous pan. Within whichever page is active, the
+canvas has the same two states it always did:
 
-- **OVERVIEW** — the default, and where the file-open sequence lands with
-  no deep link: zoom-to-fit **every** frame, so the whole file is visible
-  at once. Frame labels counter-scale (the `--canvas-scale` custom
-  property, applied as `scale(calc(1 / var(--canvas-scale)))`) so they stay
-  a constant screen size regardless of zoom. Hovering a frame highlights it
-  **and** its row in the layers panel — the two are driven by one
-  `hoveredId`, not independent hover states.
+- **OVERVIEW** — the default when a page loads: zoom-to-fit **every** frame
+  on that page. Frame labels counter-scale (see `label-transform.ts`) so
+  they stay a constant screen size regardless of zoom, with a capped
+  reach so a label can never grow far enough to overlap whatever's above
+  it even at extreme zoom-out. Hovering a frame highlights it **and** its
+  row in the layers panel — one `hoveredId`, not independent hover states.
 - **FOCUSED** — clicking any frame (canvas or layers-panel row) flies the
-  camera to fill ~80% of the viewport with it. From here, scrolling, arrow
-  keys, or a Space tap step to the next/previous frame in the **authored
-  order** — `FRAME_ORDER` in `src/content/canvas.ts`, a hand-written
-  `string[]`, deliberately **not derived from x/y coordinates** so the
-  viewing sequence can be edited independently of spatial layout. One
-  gesture moves exactly one frame (debounced against trackpad-swipe/key-
-  repeat bursts). Escape, or clicking empty canvas, returns to OVERVIEW.
+  camera to fill ~80-90% of the viewport with it. From here, scrolling,
+  arrow keys, or a Space tap step to the next/previous frame in **this
+  page's own node order** — deliberately just the order `getPageNodes()`
+  generated the page's frames in (Home: Cover, each project tile, About's
+  frames, Contact; a project page: Overview, then Photo 1..N) — not a
+  separately hand-authored list any more, since a page's content order
+  already **is** its natural viewing order and there's nothing extra to
+  keep in sync when a page's content changes. One gesture moves exactly
+  one frame (debounced against trackpad-swipe/key-repeat bursts). Escape,
+  or clicking empty canvas, returns to this page's own OVERVIEW — **unless**
+  the current page is a project page, in which case Escape goes all the way
+  back to Home (see `onEscapeUp` in `use-canvas-engine.ts`).
 
-Camera travel between frames — entering FOCUSED, stepping, returning to
-OVERVIEW — animates translate + scale together (~800ms ease-in-out) so the
-space between frames is visible; it never cross-fades or jumps. This is
-gated by a single flag, `flyBetweenFrames` in `src/lib/canvas/config.ts`,
-so the animated version can be A/B'd against instant jumps in one line.
+One frame kind is a **page-link**, not a normal frame: Home's project
+tiles carry `content.pageLink = <slug>`. Clicking one **navigates** to that
+project's page — it does not enter FOCUSED and does not zoom. This is
+wired as an engine option (`pageLinks: Map<frameId, pageId>` +
+`onNavigatePage`), checked before the normal click-to-zoom logic, so a
+page-link frame can never accidentally get "selected" the way a normal
+frame does.
+
+Camera travel — entering FOCUSED, stepping, returning to OVERVIEW,
+switching pages — animates translate + scale together (~800ms ease-in-out)
+so the space between frames is visible; it never cross-fades or jumps.
+Gated by `flyBetweenFrames` in `src/lib/canvas/config.ts`.
 `prefers-reduced-motion` always wins over that flag regardless of its
 value. The hand tool (H) and Space+drag panning still work in either
 state — they're never required, only available.
@@ -150,60 +205,68 @@ The cursor swaps by tool/state — arrow (move tool default), open hand
 `cursor: url(...) hotspotX hotspotY, fallback` **on the viewport element
 itself**. This is the only correct way to do it: a real CSS cursor is
 screen-space by definition and can never inherit the world layer's
-`scale()`. A DOM element positioned inside the transformed canvas layer
-(the mistake to avoid) grows and shrinks with zoom, which is exactly what
-Figma's own cursor never does.
+`scale()`.
 
 ### Frames as nodes
 
 A frame is an absolutely-positioned node at `(x, y)` sized `(w, h)` in canvas
 space, with a **frame label** rendered just above its top-left (Figma-style,
-11px). Frame kinds map one-to-one to content:
+11px, counter-scaled to stay a constant screen size — see
+`label-transform.ts`). Frame kinds map one-to-one to content:
 
-- **Nameplate frame** — name, role, tagline (replaces the hero)
-- **Project frames** — one per project, the cover (replaces the work grid;
-  arranged spatially, not in a list)
-- **Case-study frames** — a project's full case study, a large frame (or a
-  small cluster of frames) you zoom into (replaces the `/work/[slug]` page)
-- **About frame** — the bio (replaces the About page)
-- **Contact frame** — email + socials on an artboard (replaces the contact
-  form)
+- **`site-cover`** — Home's nameplate (name, role, tagline)
+- **`project-cover`** — Home's per-project tile: cover image, title, year
+  beneath it, wrapped in a page-link
+- **`project-overview`** — a project page's title/year/description frame
+- **`project-photo`** — one of a project's photos (count varies per
+  project, auto-gridded — see below)
+- **`about-portrait` / `about-bio` / `about-skills`** — the About cluster
+- **`contact`** — email + socials on an artboard
 
-### Spatial composition is data
+### Spatial composition is auto-computed data
 
-Where each frame sits on the canvas — its `{ x, y, w, h }`, label, and which
-content it carries — lives in a **data file** (planned:
-`src/lib/canvas/frames.ts`), not hard-coded in components. This continues the
-project's existing principle — _content is decoupled from layout_ — now as
-**spatial composition is decoupled from rendering**: you can rearrange the
-canvas by editing coordinates, without touching frame components. Frame
-content still comes from `src/content/*` (unchanged).
+Where each frame sits — its `{ x, y, w, h }`, label, and content — is
+generated by `content/canvas.ts`'s `getPageNodes(pageId)`, not hand-placed
+per frame. Two grids in particular are **computed, never hardcoded**, via
+`src/lib/canvas/auto-grid.ts`'s `autoGrid()`/`autoGridSize()`:
+
+- Home's project-tile grid (4 per row, wraps to as many rows as
+  `projects.length` needs)
+- Each project page's photo grid (4 per row, wraps based on
+  `project.images.length`)
+
+Adding a 7th or 10th project, or a 5th photo to an existing project, is a
+one-line content edit in `content/projects.ts` — no coordinate anywhere
+needs touching, because every position downstream of the array length is
+recomputed from it.
 
 ### Parallel semantic layer (accessibility + SEO)
 
 The visual canvas is transform-positioned divs in arbitrary 2D — meaningless
 to a screen reader or crawler in that order. So content is rendered **twice,
-from the same data**, as two projections:
+from the same data**, as two projections, regenerated for whichever page is
+currently active:
 
 - **Visual layer** — the transform-based canvas of frames. Pixel-faithful to
   Figma. Marked `aria-hidden` where it would otherwise pollute the a11y tree.
-- **Semantic layer** — a real, in-DOM document (`src/components/semantic/`):
-  `<main>` with an `<article>` per project, correct `<h1>`/`<h2>` order,
-  prose, alt text, and real `<a href>` deep-links. It is **present in the DOM
-  and the accessibility tree and the server HTML** (visually offscreen à la
-  `sr-only`, but **never** `display:none` and **never** `aria-hidden`). This
-  is what AT reads, what crawlers index, and what a "reader mode" would show.
+- **Semantic layer** (`src/components/semantic/SemanticDocument.tsx`) — a
+  real, in-DOM `<main>` with correct `<h1>`/`<h2>` order, alt text, and real
+  `<a href>` links: a page-link frame gets both a link to the dedicated
+  `/work/[slug]` SEO page (`Read the full X write-up`) and a real client-side
+  link to that project's canvas page (`Open the X page`, `href="/?page=X"`).
+  Any other frame's link falls back to the **current page's own URL**
+  (frames aren't individually deep-linkable any more, only pages are).
+  Visually offscreen (`sr-only`), but **never** `display:none` and **never**
+  `aria-hidden`.
 
 Both layers are generated from `src/content/*` — content is authored once;
-the canvas and the document are two views of it. Keyboard focus ties them
-together: Tab moves through the semantic layer in reading order, and each
-focus event flies the visual viewport to the matching frame, so the two stay
-in sync.
+the canvas and the document are two views of it, per page. Keyboard focus
+ties them together: Tab moves through the semantic layer in reading order,
+and each focus event flies the visual viewport to the matching frame.
 
 ## Visual language — Figma's own UI
 
-The chrome is Figma dark-mode UI, to the pixel. Tokens (planned, in
-`globals.css` `@theme`):
+The chrome is Figma dark-mode UI, to the pixel.
 
 | Token               | Value     | Use                                          |
 | ------------------- | --------- | -------------------------------------------- |
@@ -218,69 +281,87 @@ The chrome is Figma dark-mode UI, to the pixel. Tokens (planned, in
 - **Selection = blue `#0D99FF`.** Use it for focus rings and selection
   outlines — do not invent other accent colors.
 - **Artboard interiors keep the editorial palette.** The portfolio content
-  inside frames sits on light "artboards": the previous off-white (`#F4F2ED`)
-  and neutral gray scale survive **as artboard-interior tokens**, floating on
-  the dark Figma canvas. So the chrome is Figma-dark; the content is
-  editorial-light — the bridge between the two concepts.
+  inside frames sits on light "artboards": off-white (`#F4F2ED`) and neutral
+  gray scale, floating on the dark Figma canvas.
+- **Unverified facts render in red (`#F24822`, Figma's own "missing" red).**
+  Any `[BRACKETED]` run in a content string — `[YEAR]`, `[RATIONALE — TO
+  WRITE]`, etc. — is automatically rendered in that color by
+  `src/lib/canvas/placeholder-text.tsx`'s `<PlaceholderText>`, used
+  everywhere user-authored copy renders (inspector rows, case-study-style
+  body copy, OG captions where feasible). This exists so a fact that hasn't
+  been supplied yet (or, historically, a fabricated one caught during
+  review) can never silently read as real. When adding new content fields,
+  wrap their render path in `<PlaceholderText>` too, or a future bracket
+  placeholder will render in plain text instead of red.
 
-## Content (unchanged data model)
+## Content model
 
-Content still lives in typed data files under `src/content/` and is the
-single source both layers project from:
+Content lives in typed data files under `src/content/`, the single source
+both layers (and both SEO surfaces) project from:
 
-- `types.ts` — `Project`, `CaseStudy`, `CaseStudyBlock` (`heading` / `body` /
-  `pullQuote` / `fullBleedImage` / `imagePair`), `CaseStudySection`,
-  `CaseStudyImage`, plus `AboutContent` / `ContactContent` / `SiteContent`.
-- `projects.ts` — the 6 projects, each with its `caseStudy`. **Auravest** is
-  the one fully populated example (every block type); the rest use the
-  `defaultCaseStudy()` helper.
-- `about.ts` — bio + contact (email, socials, résumé).
-- `site.ts` — name, role, tagline, location. (Its old `nav` array is a
-  conventional-nav artifact and will be dropped; there is no nav.)
-- `home.ts` — old hero/contact copy; its lines get repurposed as frame text
-  (tagline → nameplate, contact line → contact frame).
+- `types.ts` — `Project`, `PropertyGroup`, `AboutContent`, `ContactContent`,
+  `SiteContent`, `HomeContent`.
+- `projects.ts` — every project as:
+  ```ts
+  {
+    slug: string;
+    title: string;
+    year: string;       // "[YEAR]" until real
+    description: string;
+    cover: ProjectImage;    // { src, width, height, alt }
+    images: ProjectImage[]; // however many — the grid follows the length
+  }
+  ```
+  There is no case-study model any more (no sections, no rationale, no
+  Role/Team/Duration/Tools/Platform) — a project **is** a title, a year, a
+  description, and its photos. All six current projects get a Home tile
+  and their own page; the old `featured` flag is gone — every project in
+  the array is fully first-class.
+- `about.ts` — bio + contact (email, socials, résumé). Unchanged by the
+  Pages rewrite.
+- `site.ts` — name, role, tagline, location.
+- `home.ts` — the Cover's positioning-statement copy.
+- `canvas.ts` — **not** static content; the page-generation module described
+  under Architecture above (`PAGES`, `getPageNodes`, the `CanvasNode`
+  union, the two auto-grids).
 
-Project covers are placeholder SVGs in `public/projects/` at final display
-dimensions, rendered via next/image with `unoptimized` (SVG). The
-case-study block model is unchanged and is what the case-study **frame**
-renderer and the semantic layer both consume.
+Project cover images and photos are placeholder SVGs (`public/projects/`,
+`public/photos/`) generated by `scripts/generate-project-photos.mjs` —
+re-run it after editing photo counts in `content/projects.ts`.
 
-## Planned file structure
+## File structure (current, not aspirational)
 
 ```
 src/
   app/
-    [[...frame]]/page.tsx   the single canvas route (SSG per frame)
-    layout.tsx              Figma dark shell (no nav/footer/scroll provider)
-    globals.css             Figma UI tokens + artboard-interior tokens
-    icon.tsx, opengraph-image.tsx, twitter-image.tsx   (kept; restyle OG)
-    sitemap.ts, robots.ts   (rewritten for the new URL shape)
+    page.tsx                the one interactive route (?page=<slug>)
+    work/[slug]/page.tsx     static per-project SEO page (+ OG/Twitter images)
+    layout.tsx               Figma dark shell; root JSON-LD Person schema
+    globals.css              Figma UI tokens + artboard-interior tokens
+    icon.tsx, opengraph-image.tsx, twitter-image.tsx
+    sitemap.ts, robots.ts
   components/
-    canvas/                 Canvas (viewport), Frame, FrameLabel…
-    frames/                 NameplateFrame, ProjectFrame, CaseStudyFrame,
-                            AboutFrame, ContactFrame (projections of content)
-    semantic/               the parallel semantic document
+    canvas/                  Canvas (viewport), Frame, Group, TopBar,
+                             LeftPanel, PagesPanel, LayerBrowser, RightPanel,
+                             InspectorContent, FrameCounter, CommandPalette,
+                             mobile equivalents…
+    semantic/                SemanticDocument, FrameLink — the parallel doc
   lib/
-    canvas/frames.ts        spatial composition data ({x,y,w,h}+label+content)
-    canvas/viewport.ts      motion-value viewport controller + fly-to math
-    motion.ts               (kept) durations/easings for Framer Motion
-    site-url.ts             (kept) canonical URL resolver for metadata
-    og-content.tsx          (kept) OG image visuals
-  content/                  (kept, unchanged) the content data model
+    canvas/
+      use-canvas-engine.ts   viewport + selection + pageLinks/onEscapeUp
+      use-intro-sequence.ts  first-load loading screen + zoom-to-fit reveal
+      auto-grid.ts           autoGrid()/autoGridSize() — the two grids' math
+      label-transform.ts     capped counter-scale for constant-size labels
+      geometry.ts, tree.ts, color.ts, blur.ts, config.ts, types.ts
+    motion.ts                durations/easings for Framer Motion
+    site-url.ts              canonical URL resolver for metadata
+    og-content.tsx           OG image visuals
+  content/                   the content data model (see above)
+scripts/
+  generate-project-photos.mjs   placeholder photo generator
 ```
 
-## Removed with the old concept
-
-The previous build was a conventional scrolling editorial site (cinematic
-intro → hero → work grid → about → contact, plus a case-study page template).
-All of that chrome is deleted because it is exactly what the Hard Rule
-forbids. See the deletion list maintained alongside this rewrite. The
-**content and data survive**; only the page-document presentation of it is
-gone.
-
 ## Conventions still in force
-
-Carried over from the prior build because they're concept-independent:
 
 - **Accessibility contrast** — compute WCAG ratios, don't eyeball. On dark
   Figma chrome, UI text must clear AA against `#1E1E1E`/`#2C2C2C`; artboard
@@ -288,28 +369,34 @@ Carried over from the prior build because they're concept-independent:
   the readable-text minimum on off-white, `gray-400`/`500` are non-text
   only). Every interactive element gets a visible focus ring — reuse the
   Figma **blue `#0D99FF`** for it.
-- **`prefers-reduced-motion`** — pan/zoom animations and any fly-to must have
-  a reduced-motion path (instant jumps instead of animated flights). The
-  canvas still works with motion off.
+- **`prefers-reduced-motion`** — pan/zoom animations, fly-to, and page
+  switches all have a reduced-motion path (instant jumps instead of
+  animated flights). The canvas still works with motion off.
 - **SEO infra** — `site-url.ts` resolves the canonical URL
   (`NEXT_PUBLIC_SITE_URL` → Vercel env → localhost); root layout sets
-  `metadataBase` + a title template + JSON-LD `Person`; per-frame
-  `generateMetadata`. `next/og` images: **Satori needs explicit
-  `display:flex` on any div with >1 child** (this only errors at request
-  time in production — `next dev`/`tsc` won't catch it).
-- **Content decoupled from presentation** — now generalized: content in
-  `/content`, spatial composition in `/lib/canvas`, rendering in
-  `/components`. Editing any one must not require touching the others.
+  `metadataBase` + a title template + JSON-LD `Person` (including a real
+  `address` once supplied); `page.tsx`'s `generateMetadata` reads `?page=`.
+  `next/og` images: **Satori needs explicit `display:flex` on any div with
+  >1 child** (this only errors at request time in production — `next
+  dev`/`tsc` won't catch it).
+- **Content decoupled from presentation** — content in `/content`, spatial
+  composition (now: page generation) in `/lib/canvas` + `content/canvas.ts`,
+  rendering in `/components`. Editing any one must not require touching the
+  others.
+- **No fabricated specifics.** Every project fact not yet supplied is a
+  literal `[BRACKETED]` placeholder rendered in red (see Visual language,
+  above) — never invented prose standing in for real research, metrics, or
+  team details. Extend this to any new content field before it ships.
 
 ## Stack
 
 - **Next.js** (App Router) + **TypeScript**
 - **Tailwind CSS v4** (CSS-first `@theme`, no `tailwind.config.js`)
 - **Framer Motion** — drives the viewport transform (motion values) and
-  fly-to animations; **Lenis is removed** (smooth _scroll_ is a
-  page-document idea; there is no scroll)
+  fly-to/page-switch animations; **Lenis is removed** (smooth _scroll_ is
+  a page-document idea; there is no scroll within a page)
 - **next/font** — self-hosted UI sans (11px chrome); editorial display type
-  for artboard content is optional, revisit during build
+  for artboard content
 - **ESLint** + **Prettier** (with `prettier-plugin-tailwindcss`)
 
 ## Commands
@@ -320,3 +407,5 @@ Carried over from the prior build because they're concept-independent:
   real performance/Lighthouse check)
 - `npm run lint` — ESLint
 - `npm run format` / `format:check` — Prettier
+- `node scripts/generate-project-photos.mjs` — regenerate placeholder photos
+  after editing photo counts in `content/projects.ts`
