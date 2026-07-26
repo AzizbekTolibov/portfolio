@@ -106,7 +106,7 @@ function FlatFrame({ frame }: { frame: FrameProps["node"] }) {
               fontWeight: "var(--text-display--font-weight)",
             }}
           >
-            {flatLabel}
+            <PlaceholderText text={flatLabel} />
           </span>
           {flatSublabel && (
             <span

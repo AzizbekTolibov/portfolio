@@ -5,11 +5,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { contact } from "@/content/about";
 import {
   getPageNodes,
+  getPages,
   PAGES,
   type CanvasNode,
   type PageId,
 } from "@/content/canvas";
-import { projects } from "@/content/projects";
+import { projects as fileProjects } from "@/content/projects";
 import {
   buildLayerTree,
   computeGroupLabelDepths,
@@ -18,7 +19,7 @@ import {
 } from "@/lib/canvas/tree";
 import { rectIntersects } from "@/lib/canvas/geometry";
 import { useCanvasEngine } from "@/lib/canvas/use-canvas-engine";
-import { useEditLayout } from "@/lib/canvas/use-edit-layout";
+import { useEditContent } from "@/lib/canvas/use-edit-content";
 import { useIntroSequence } from "@/lib/canvas/use-intro-sequence";
 import { useIsMobile } from "@/lib/canvas/use-is-mobile";
 import { SemanticDocument } from "@/components/semantic/SemanticDocument";
@@ -38,6 +39,12 @@ import { TopBar, type Tool } from "./TopBar";
 // own chunk, fetched only once the user actually opens the palette.
 const CommandPalette = dynamic(
   () => import("./CommandPalette").then((m) => m.CommandPalette),
+  { ssr: false },
+);
+
+// /edit only, opened from the top bar — never needed on the public site.
+const ProjectManager = dynamic(
+  () => import("./ProjectManager").then((m) => m.ProjectManager),
   { ssr: false },
 );
 
@@ -80,19 +87,64 @@ export function CanvasWorkspace({
   const isMobile = useIsMobile();
 
   const [pageId, setPageId] = useState<PageId>(initialPageId ?? "home");
+
+  // Editor-only in-memory content (see use-edit-content.ts) — inert when
+  // !editMode. getPageNodes falls back to the real file-based content
+  // when passed undefined, which is exactly what the public site needs
+  // and always gets.
+  const edit = useEditContent(editMode);
+  const {
+    layout,
+    site: liveSite,
+    home: liveHome,
+    about: liveAbout,
+    projects: liveProjects,
+    commitPatch,
+    commitSite,
+    commitHome,
+    commitAbout,
+    isSlugTaken,
+    updateProject,
+    addProject,
+    duplicateProject,
+    deleteProject,
+    reorderProject,
+    addPhoto,
+    removePhoto,
+    reorderPhoto,
+    setCoverPhoto,
+    dirty,
+    saving,
+    saveError,
+    save,
+    undo,
+    redo,
+  } = edit;
+
+  const projects = editMode ? liveProjects : fileProjects;
   const currentProject =
     pageId === "home" ? undefined : projects.find((p) => p.slug === pageId);
 
-  // Editor-only in-memory overrides (see use-edit-layout.ts) — inert when
-  // !editMode. getPageNodes falls back to layout.json's own file-based
-  // content when passed undefined, which is exactly what the public site
-  // needs and always gets.
-  const { overrides, commitPatch, dirty, saving, saveError, save, undo, redo } =
-    useEditLayout(editMode);
+  const pages = useMemo(
+    () => (editMode ? getPages(liveProjects) : PAGES),
+    [editMode, liveProjects],
+  );
 
   const pageNodes = useMemo(
-    () => getPageNodes(pageId, editMode ? overrides : undefined),
-    [pageId, editMode, overrides],
+    () =>
+      getPageNodes(
+        pageId,
+        editMode ? layout : undefined,
+        editMode
+          ? {
+              site: liveSite,
+              home: liveHome,
+              about: liveAbout,
+              projects: liveProjects,
+            }
+          : undefined,
+      ),
+    [pageId, editMode, layout, liveSite, liveHome, liveAbout, liveProjects],
   );
   const spatialNodes = useMemo(
     () =>
@@ -269,6 +321,7 @@ export function CanvasWorkspace({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [layersSheetOpen, setLayersSheetOpen] = useState(false);
+  const [projectManagerOpen, setProjectManagerOpen] = useState(false);
 
   useEffect(() => {
     setHandTool(tool === "hand");
@@ -352,13 +405,13 @@ export function CanvasWorkspace({
   useEffect(() => {
     function onPopState() {
       const id = readPageParam() ?? "home";
-      const valid = PAGES.some((p) => p.id === id) ? id : "home";
+      const valid = pages.some((p) => p.id === id) ? id : "home";
       skipUrlSyncRef.current = true;
       setPageId(valid);
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, []);
+  }, [pages]);
 
   const handleSelectFrame = (frameId: string) => {
     const linkedPage = pageLinks.get(frameId);
@@ -506,6 +559,7 @@ export function CanvasWorkspace({
           onShare={handleShare}
           isMobile
           editMode={editMode}
+          onOpenProjects={() => setProjectManagerOpen(true)}
         />
         <div className="relative min-h-0 flex-1">
           {canvasEl}
@@ -527,7 +581,7 @@ export function CanvasWorkspace({
         />
         {layersSheetOpen && (
           <MobileLayersSheet
-            pages={PAGES}
+            pages={pages}
             currentPageId={pageId}
             onSelectPage={navigateToPage}
             layerTree={layerTree}
@@ -549,6 +603,22 @@ export function CanvasWorkspace({
         {shortcutsOpen && (
           <KeyboardShortcutsDialog onClose={() => setShortcutsOpen(false)} />
         )}
+        {projectManagerOpen && (
+          <ProjectManager
+            projects={liveProjects}
+            isSlugTaken={isSlugTaken}
+            onClose={() => setProjectManagerOpen(false)}
+            onAddProject={addProject}
+            onDuplicateProject={duplicateProject}
+            onDeleteProject={deleteProject}
+            onReorderProject={reorderProject}
+            onUpdateProject={updateProject}
+            onAddPhoto={addPhoto}
+            onRemovePhoto={removePhoto}
+            onReorderPhoto={reorderPhoto}
+            onSetCoverPhoto={setCoverPhoto}
+          />
+        )}
       </div>
     );
   }
@@ -567,6 +637,7 @@ export function CanvasWorkspace({
         pageName={currentProject?.title}
         onGoHome={pageId !== "home" ? () => navigateToPage("home") : undefined}
         editMode={editMode}
+        onOpenProjects={() => setProjectManagerOpen(true)}
         dirty={dirty}
         saving={saving}
         saveError={saveError}
@@ -576,7 +647,7 @@ export function CanvasWorkspace({
       />
       <div className="flex min-h-0 flex-1">
         <LeftPanel
-          pages={PAGES}
+          pages={pages}
           currentPageId={pageId}
           onSelectPage={navigateToPage}
           layerTree={layerTree}
@@ -600,6 +671,15 @@ export function CanvasWorkspace({
           editMode={editMode}
           onCommitField={handleCommitField}
           overlapWarning={overlapWarning}
+          site={liveSite}
+          home={liveHome}
+          about={liveAbout}
+          projects={liveProjects}
+          onCommitSite={commitSite}
+          onCommitHome={commitHome}
+          onCommitAbout={commitAbout}
+          onUpdateProject={updateProject}
+          isSlugTaken={isSlugTaken}
         />
       </div>
       {paletteOpen && (
@@ -614,6 +694,22 @@ export function CanvasWorkspace({
       )}
       {shortcutsOpen && (
         <KeyboardShortcutsDialog onClose={() => setShortcutsOpen(false)} />
+      )}
+      {projectManagerOpen && (
+        <ProjectManager
+          projects={liveProjects}
+          isSlugTaken={isSlugTaken}
+          onClose={() => setProjectManagerOpen(false)}
+          onAddProject={addProject}
+          onDuplicateProject={duplicateProject}
+          onDeleteProject={deleteProject}
+          onReorderProject={reorderProject}
+          onUpdateProject={updateProject}
+          onAddPhoto={addPhoto}
+          onRemovePhoto={removePhoto}
+          onReorderPhoto={reorderPhoto}
+          onSetCoverPhoto={setCoverPhoto}
+        />
       )}
     </div>
   );

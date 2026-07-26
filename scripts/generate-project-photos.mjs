@@ -4,6 +4,12 @@
 // `counts` below) to prove the grid is really computed from array length,
 // not hardcoded. Re-run after editing `counts`:
 // `node scripts/generate-project-photos.mjs`.
+//
+// Vestigial as of Phase 3 (see claude-code-prompt-phase3.md): /edit now
+// has a real upload path (src/app/api/edit/upload/route.ts) that writes
+// real photos with real intrinsic dimensions and required alt text. This
+// script still exists to regenerate the placeholder set the six original
+// demo projects ship with, not as the way new photos get added anymore.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";

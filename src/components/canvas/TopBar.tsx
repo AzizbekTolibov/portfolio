@@ -32,9 +32,11 @@ type TopBarProps = {
    * not the public site, since the canvas itself renders identically in
    * both. */
   editMode?: boolean;
-  /** True whenever the in-memory layout differs from what's on disk —
+  /** Opens the project CRUD overlay — see ProjectManager. */
+  onOpenProjects?: () => void;
+  /** True whenever the in-memory content differs from what's on disk —
    * drives the dot next to Save and the beforeunload warning (see
-   * use-edit-layout.ts). */
+   * use-edit-content.ts). */
   dirty?: boolean;
   saving?: boolean;
   saveError?: string | null;
@@ -201,6 +203,7 @@ export function TopBar({
   pageName,
   onGoHome,
   editMode = false,
+  onOpenProjects,
   dirty = false,
   saving = false,
   saveError = null,
@@ -246,6 +249,15 @@ export function TopBar({
           <span className="bg-selection/15 text-selection shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wide uppercase">
             Edit mode
           </span>
+        )}
+        {editMode && onOpenProjects && (
+          <button
+            type="button"
+            onClick={onOpenProjects}
+            className="text-off-white/70 hover:text-off-white shrink-0 rounded px-2 py-0.5 text-[11px] hover:bg-white/5"
+          >
+            Projects
+          </button>
         )}
       </div>
 

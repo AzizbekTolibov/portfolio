@@ -56,12 +56,9 @@ export type SiteContent = {
   name: string;
   role: string;
   tagline: string;
-  nav: { label: string; href: string }[];
   location: { display: string };
 };
 
 export type HomeContent = {
   heroHeadline: string;
-  heroSubhead: string;
-  contactHeadline: string;
 };

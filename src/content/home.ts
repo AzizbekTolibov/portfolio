@@ -1,8 +1,5 @@
+import homeData from "./data/home.json";
 import type { HomeContent } from "./types";
 
-export const home: HomeContent = {
-  heroHeadline: "I design complex software that doesn't feel complex.",
-  heroSubhead: "Selected projects, and a little about how I work — below.",
-  contactHeadline:
-    "Got a project brewing, or just want to talk shop? My inbox is always open — say hi.",
-};
+// Data lives in data/home.json now — see content/projects.ts for why.
+export const home: HomeContent = homeData;

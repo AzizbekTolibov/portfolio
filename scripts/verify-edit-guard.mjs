@@ -1,8 +1,9 @@
-// Fails if /edit OR its /api/edit/* routes are reachable in a production
+// Fails if /edit OR any /api/edit/* route is reachable in a production
 // build — the guarantee that actually matters (a leaked editor route is a
 // filesystem-write endpoint on a public URL, see src/app/edit/page.tsx and
-// src/app/api/edit/save/route.ts), not just "the source calls notFound()"
-// or checks NODE_ENV. Run this against a real `next build` output:
+// every src/app/api/edit/*/route.ts), not just "the source calls
+// notFound()" or checks NODE_ENV. Run this against a real `next build`
+// output:
 //   npm run build && node scripts/verify-edit-guard.mjs
 import { execFile, spawn } from "node:child_process";
 import path from "node:path";
@@ -82,7 +83,7 @@ try {
   const saveRes = await fetch(`http://localhost:${PORT}/api/edit/save`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ overrides: {} }),
+    body: JSON.stringify({ files: {} }),
   });
   if (saveRes.status !== 404) {
     fail(
@@ -90,6 +91,33 @@ try {
     );
   } else {
     console.log("verify-edit-guard: OK — POST /api/edit/save returned 404.");
+  }
+
+  const uploadRes = await fetch(`http://localhost:${PORT}/api/edit/upload`, {
+    method: "POST",
+    body: new FormData(),
+  });
+  if (uploadRes.status !== 404) {
+    fail(
+      `POST /api/edit/upload returned ${uploadRes.status}, expected 404 — the upload endpoint is reachable (and would write files) in a production build.`,
+    );
+  } else {
+    console.log("verify-edit-guard: OK — POST /api/edit/upload returned 404.");
+  }
+
+  const deleteRes = await fetch(`http://localhost:${PORT}/api/edit/upload`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ src: "/photos/x/y.png" }),
+  });
+  if (deleteRes.status !== 404) {
+    fail(
+      `DELETE /api/edit/upload returned ${deleteRes.status}, expected 404 — it would delete files in a production build.`,
+    );
+  } else {
+    console.log(
+      "verify-edit-guard: OK — DELETE /api/edit/upload returned 404.",
+    );
   }
 } catch (err) {
   fail(String(err));

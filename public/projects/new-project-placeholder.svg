@@ -1,0 +1,6 @@
+<svg width="1200" height="1500" viewBox="0 0 1200 1500" xmlns="http://www.w3.org/2000/svg" role="img">
+  <rect width="1200" height="1500" fill="#2C2A25"/>
+  <rect x="64" y="1354" width="56" height="4" fill="#ECE9E2"/>
+  <text x="64" y="1408" font-family="system-ui, sans-serif" font-size="40" fill="#F4F2ED">No cover yet</text>
+  <text x="64" y="1452" font-family="ui-monospace, monospace" font-size="16" letter-spacing="1" fill="#F4F2ED" opacity="0.7">UPLOAD A COVER IMAGE</text>
+</svg>

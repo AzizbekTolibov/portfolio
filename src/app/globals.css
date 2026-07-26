@@ -27,6 +27,16 @@
      below). Not part of the artboard-interior editorial palette. */
   --color-selection: #0d99ff;
 
+  /* Non-blocking editor warnings (frame overlap, text likely to overflow
+     its frame — see EditInspector.tsx) — a genuine semantic status color,
+     not a second brand accent, so it doesn't conflict with "reuse
+     selection blue, don't invent chrome accents" above. Tailwind's own
+     amber-* utilities don't exist here: --color-*: initial above wipes
+     the entire default palette, so `text-amber-400` silently resolves to
+     no color at all rather than erroring — this is the fix for exactly
+     that (discovered when Phase 3's overflow warning rendered invisible). */
+  --color-warning: #f2a022;
+
   /* Figma chrome tokens — the top bar / side panels' own surfaces, distinct
      from the dark canvas backdrop (off-black) and from the light
      artboard-interior palette below. */

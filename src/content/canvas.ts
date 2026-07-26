@@ -4,7 +4,27 @@ import { home } from "./home";
 import { autoGrid, autoGridSize } from "@/lib/canvas/auto-grid";
 import { projects } from "./projects";
 import { site } from "./site";
-import type { Project, PropertyGroup } from "./types";
+import type {
+  AboutContent,
+  HomeContent,
+  Project,
+  PropertyGroup,
+  SiteContent,
+} from "./types";
+
+/** Everything a page's nodes are generated from, besides layout overrides
+ * — site/home/about/projects. The public site never passes this
+ * (defaults to the real file-based imports); the editor passes its own
+ * in-memory, live-edited copies (see use-edit-content.ts) so the canvas
+ * re-renders as content is typed, the same way it already does for
+ * dragged/resized positions. `contact` isn't here — none of its fields
+ * are editable this phase (see about.ts). */
+export type EditableContent = {
+  site: SiteContent;
+  home: HomeContent;
+  about: AboutContent;
+  projects: Project[];
+};
 
 /**
  * The canvas's content AND spatial composition, in one place — restructured
@@ -197,10 +217,19 @@ export type PageId = string; // "home" | a project slug
 
 export type PageMeta = { id: PageId; name: string };
 
-export const PAGES: PageMeta[] = [
-  { id: "home", name: "Home" },
-  ...projects.map((p) => ({ id: p.slug, name: p.title })),
-];
+/** Given as a function, not just the PAGES constant below, so the editor
+ * can compute it from its own live (unsaved) projects list — adding,
+ * deleting, or reordering a project needs the Pages panel to follow
+ * immediately, not just after a save. The public site never passes an
+ * argument, so it always reflects the real file. */
+export function getPages(projectsList: Project[] = projects): PageMeta[] {
+  return [
+    { id: "home", name: "Home" },
+    ...projectsList.map((p) => ({ id: p.slug, name: p.title })),
+  ];
+}
+
+export const PAGES: PageMeta[] = getPages();
 
 export function isProjectPage(pageId: PageId): boolean {
   return pageId !== "home";
@@ -254,7 +283,8 @@ const PROJECT_GRID_COLS = 4;
 // eat into the clearance that already separates Work from Cover/About.
 const WORK_GROUP_PADDING = 80;
 
-function buildHomeNodes(): CanvasNode[] {
+function buildHomeNodes(content: EditableContent): CanvasNode[] {
+  const { site, home, about, projects } = content;
   const nodes: CanvasNode[] = [];
 
   // ---- project grid (auto-computed from projects.length) ----
@@ -501,7 +531,7 @@ function buildHomeNodes(): CanvasNode[] {
       width: 450,
       height: 700,
       content: {
-        src: "/canvas/about-portrait.svg",
+        src: about.photo,
         alt: `${about.name} portrait`,
         blurColor: "#B08968",
       },
@@ -791,20 +821,27 @@ function buildProjectPageNodes(project: Project): CanvasNode[] {
 
 // ==================================================================
 
-/** `overrides` defaults to layout.json's own (file-based) content — the
- * public site never passes this. The editor passes its own in-memory,
- * live-edited copy (see use-edit-layout.ts's getLayoutOverrides() above)
- * so the canvas re-renders with unsaved changes as they're made, without
- * writing to disk until a real save. */
+/** `overrides` and `content` both default to the real file-based imports —
+ * the public site never passes either. The editor passes its own
+ * in-memory, live-edited copies (see use-edit-content.ts) so the canvas
+ * re-renders with unsaved position AND content changes as they're made,
+ * without writing to disk until a real save. */
 export function getPageNodes(
   pageId: PageId,
   overrides: LayoutOverrides = layoutOverrides,
+  content?: Partial<EditableContent>,
 ): CanvasNode[] {
+  const resolved: EditableContent = {
+    site: content?.site ?? site,
+    home: content?.home ?? home,
+    about: content?.about ?? about,
+    projects: content?.projects ?? projects,
+  };
   let nodes: CanvasNode[];
   if (pageId === "home") {
-    nodes = buildHomeNodes();
+    nodes = buildHomeNodes(resolved);
   } else {
-    const project = projects.find((p) => p.slug === pageId);
+    const project = resolved.projects.find((p) => p.slug === pageId);
     nodes = project ? buildProjectPageNodes(project) : [];
   }
   return applyLayoutOverrides(pageId, nodes, overrides);

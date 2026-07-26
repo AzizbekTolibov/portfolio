@@ -297,18 +297,28 @@ and each focus event flies the visual viewport to the matching frame.
 
 The chrome is Figma dark-mode UI, to the pixel.
 
-| Token               | Value     | Use                                          |
-| ------------------- | --------- | -------------------------------------------- |
-| `--color-panel`     | `#1E1E1E` | Toolbar / panel chrome                       |
-| `--color-surface`   | `#2C2C2C` | Secondary surfaces, canvas backdrop          |
-| `--color-selection` | `#0D99FF` | Selection outlines, focus rings (Figma blue) |
+| Token               | Value     | Use                                                                          |
+| ------------------- | --------- | ---------------------------------------------------------------------------- |
+| `--color-panel`     | `#1E1E1E` | Toolbar / panel chrome                                                       |
+| `--color-surface`   | `#2C2C2C` | Secondary surfaces, canvas backdrop                                          |
+| `--color-selection` | `#0D99FF` | Selection outlines, focus rings (Figma blue)                                 |
+| `--color-warning`   | `#F2A022` | Non-blocking editor notes (frame overlap, text likely to overflow its frame) |
 
 - **UI text is 11px** — Figma's chrome size. Frame labels, toolbar,
   coordinates, zoom %: all 11px, neutral UI sans, a dim gray on dark.
 - **Frame labels sit above frames** — the frame's name in 11px just above its
   top-left corner, exactly like Figma renders artboard names.
 - **Selection = blue `#0D99FF`.** Use it for focus rings and selection
-  outlines — do not invent other accent colors.
+  outlines — do not invent other accent colors for chrome. (`--color-warning`
+  above is a genuine semantic status color for editor-only notes, not a
+  second brand accent, so it doesn't conflict with this.)
+- **Tailwind's default color palette does not exist here.** `globals.css`'s
+  `@theme` block resets it entirely (`--color-*: initial`) before defining
+  this site's own tokens — a class like `text-amber-400` compiles to _no
+  color at all_ rather than an error, since Tailwind has nothing to resolve
+  it against. This bit Phase 3 for real (a warning banner silently rendered
+  in the ambient text color); any new status color needs its own token in
+  the `@theme` block above, never a stock Tailwind color name.
 - **Artboard interiors keep the editorial palette.** The portfolio content
   inside frames sits on light "artboards": off-white (`#F4F2ED`) and neutral
   gray scale, floating on the dark Figma canvas.
@@ -321,7 +331,14 @@ WRITE]`, etc. — is automatically rendered in that color by
   been supplied yet (or, historically, a fabricated one caught during
   review) can never silently read as real. When adding new content fields,
   wrap their render path in `<PlaceholderText>` too, or a future bracket
-  placeholder will render in plain text instead of red.
+  placeholder will render in plain text instead of red. `Frame.tsx`'s flat-LOD
+  primary label (`flatLabel` — a project's title on its Home tile, or the
+  site name on Cover) was missing this wrap until Phase 3 caught it: its own
+  sibling, `flatSublabel`, was already routed through `PlaceholderText`, but
+  the primary label wasn't, so a newly-added project's placeholder title
+  rendered in plain text at OVERVIEW zoom. Found by the editor's own
+  "add a project" flow producing exactly that placeholder and checking its
+  actual computed color, not by assumption.
 
 ## Content model
 
@@ -350,17 +367,39 @@ both layers (and both SEO surfaces) project from:
   and their own page; the old `featured` flag is gone — every project in
   the array is fully first-class.
 - `data/projects.json` — the actual project data, plain JSON so a program
-  (a future content editor) can safely rewrite it; a TS module full of
-  object literals can't be rewritten that safely.
+  (the editor) can safely rewrite it; a TS module full of object literals
+  can't be rewritten that safely.
 - `data/layout.json` — per-node position overrides (`LayoutOverrides`, see
   Architecture above), `{}` until anything is ever hand-positioned.
-- `about.ts` — bio + contact (email, socials, résumé). Unchanged by the
-  Pages rewrite.
-- `site.ts` — name, role, tagline, location.
-- `home.ts` — the Cover's positioning-statement copy.
+- `site.ts` / `data/site.json` — name, role, tagline, `location.display`.
+  Same loader pattern as projects. `nav` (a link list the Hard Rule
+  forbids outright) was deleted in Phase 3 — zero references, confirmed
+  by grep before removing.
+- `home.ts` / `data/home.json` — the Cover's positioning-statement copy
+  (`heroHeadline`). `heroSubhead` and `contactHeadline` were both deleted
+  in Phase 3 — the spec named the first as dead; grepping turned up the
+  second as equally dead (zero consumers) despite not being named, so it
+  went too.
+- `about.ts` / `data/about.json` — `bioShort` (file panel, nothing
+  selected), `bioMedium` (canvas About frame, height-constrained),
+  `bioLong` (semantic layer + crawlers only, no frame maps to it),
+  `photo` (the About portrait's image src — previously declared but never
+  actually read; `canvas.ts` hardcoded a literal path instead, silently
+  ignoring this field entirely, fixed in Phase 3 so editing it does
+  something), `availability`, `tools`, `skills`. `contact` (email,
+  socials, résumé) stays a plain export in the same file, **not** moved to
+  JSON — none of its fields are editable yet, so there's no editor UI
+  behind it to justify the migration.
 - `canvas.ts` — **not** static content; the page-generation module described
-  under Architecture above (`PAGES`, `getPageNodes`, the `CanvasNode`
-  union, the two auto-grids, `LayoutOverrides`).
+  under Architecture above (`PAGES`/`getPages()`, `getPageNodes`, the
+  `CanvasNode` union, the two auto-grids, `LayoutOverrides`,
+  `EditableContent`).
+- `layout-maintenance.ts` — pure functions keeping `layout.json` consistent
+  when project identity changes: `pruneProjectFromLayout` (delete),
+  `renameProjectInLayout` (slug rename — node ids are slug-derived, so a
+  rename has to follow them), `remapPhotoOverrides` (a photo added/
+  removed/reordered shifts every later photo's node id, since those are
+  position-derived, not stable identifiers).
 
 Project cover images and photos are placeholder SVGs (`public/projects/`,
 `public/photos/`) generated by `scripts/generate-project-photos.mjs` —
@@ -375,8 +414,10 @@ src/
     work/[slug]/page.tsx     static per-project SEO page (+ OG/Twitter images)
     edit/page.tsx            local-only editor shell — notFound() in
                              production, see Editor below
-    api/edit/save/route.ts   writes layout.json — own independent
-                             notFound() guard, see Editor below
+    api/edit/save/route.ts   writes any editable data file — own
+                             independent notFound() guard, see Editor below
+    api/edit/upload/route.ts photo upload (POST) + file delete (DELETE) —
+                             own independent guard too
     layout.tsx               Figma dark shell; root JSON-LD Person schema
     globals.css              Figma UI tokens + artboard-interior tokens
     icon.tsx, opengraph-image.tsx, twitter-image.tsx
@@ -384,14 +425,17 @@ src/
   components/
     canvas/                  Canvas (viewport), Frame, Group, TopBar,
                              LeftPanel, PagesPanel, LayerBrowser, RightPanel,
-                             InspectorContent, EditInspector, FrameCounter,
-                             CommandPalette, mobile equivalents…
+                             InspectorContent, EditInspector, ProjectManager,
+                             FrameCounter, CommandPalette, mobile equivalents…
     semantic/                SemanticDocument, FrameLink — the parallel doc
   lib/
     canvas/
       use-canvas-engine.ts   viewport + selection + pageLinks/onEscapeUp +
                              edit-mode drag/nudge (see Editor below)
-      use-edit-layout.ts     editor's in-memory overrides + undo/redo + save
+      use-edit-content.ts    editor's in-memory layout + site/home/about/
+                             projects + undo/redo + save
+      text-fit.ts            estimateCharCapacity() — bioMedium's overflow
+                             estimate in EditInspector
       use-intro-sequence.ts  first-load loading screen + zoom-to-fit reveal
       auto-grid.ts           autoGrid()/autoGridSize() — the two grids' math
       label-transform.ts     capped counter-scale for constant-size labels
@@ -440,9 +484,10 @@ the box and leave them pinned?), so a selected group shows read-only w/h
 and no handles, while a selected frame gets 8 handles that preview via
 `scaleX`/`scaleY` + `transformOrigin` during the gesture and commit real
 `width`/`height` only on release. `Cmd+Z`/`Cmd+Shift+Z` undo/redo over a
-bounded array of whole-`LayoutOverrides` snapshots (`use-edit-layout.ts`);
-arrow keys nudge the selection (1 unit, 10 with Shift) instead of stepping
-`frameOrder` or panning, while edit mode is on.
+bounded array of whole-state snapshots (`use-edit-content.ts` — layout AND
+content share one history stack, see below); arrow keys nudge the
+selection (1 unit, 10 with Shift) instead of stepping `frameOrder` or
+panning, while edit mode is on.
 
 `LayoutOverrides` (`content/canvas.ts`) stores each touched node's own new
 absolute rect, but `applyLayoutOverrides` resolves it as a **delta**
@@ -460,7 +505,57 @@ layout later — a flattened-descendant approach would need every stored
 child position kept in sync by hand. Width/height never cascade this
 way; they only ever apply to the exact node they're set on.
 
-## Conventions still in force
+**Content editing** (the editor's third build phase — see
+`claude-code-prompt-phase3.md`): every field listed in the Content model
+section above is editable through `EditInspector`, inspector-based rather
+than inline-on-canvas — `contentEditable` inside a scaled, translated,
+LOD-gated container fights caret positioning, IME input, and the fact
+that text only renders above 80% zoom in the first place, so inline
+editing is deliberately deferred (noted in `EditInspector`'s own header
+comment), not forgotten. Selecting a frame shows the content fields _that
+frame owns_ alongside its position — Cover shows site name/role/location
+
+- the positioning statement; a project tile or a project page's Overview
+  shows that project's title/year/description/slug; About's Bio frame shows
+  `bioMedium` with a live character-count estimate against its own frame
+  height (`estimateCharCapacity` in `lib/canvas/text-fit.ts` — a rough
+  proportional-font heuristic, not a real layout measurement, tuned so the
+  existing copy reads as comfortably under); About's Tools & Skills frame
+  shows both property-group lists. Fields with no owning frame at all
+  (`bioShort`, `bioLong`, `availability`, `site.tagline`) live in the File
+  panel shown when nothing is selected.
+
+Project CRUD (add/duplicate/delete/reorder, photo add/remove/reorder/set-
+cover) lives in `ProjectManager` (opened from the top bar's "Projects"
+button), backed by `use-edit-content.ts` and `content/layout-maintenance.ts`
+for the identity-change bookkeeping described above. Reordering the
+project list never touches `layout.json` — node ids are slug-derived, not
+index-derived, so the same override keys keep resolving to the same
+project either way — but it **does** change that project's auto-computed
+default grid slot, and since a position override is a delta from that
+default, a tile that was already hand-positioned will visibly jump on
+reorder: the override still "wins" in that it still applies, it just
+reapplies the same delta from a new starting point.
+
+`src/app/api/edit/upload/route.ts` (same independent `NODE_ENV` guard,
+covered by `verify:edit-guard`) accepts a multipart upload, reads real
+intrinsic dimensions via `image-size` (not `sharp`), rejects anything but
+png/jpg/webp/svg, and makes alt text a required, non-empty field — a
+validation error, not a placeholder, because non-negotiable #3 is only as
+good as the content behind it. `scripts/generate-project-photos.mjs` is
+vestigial now that real uploads work; it still exists to regenerate the
+placeholder set the six original demo projects ship with.
+
+`/api/edit/save` is the **one** save endpoint for every editable data
+file — it takes `{ files: { <name>: <data> } }` naming whichever of
+layout/site/home/about/projects actually changed, rather than one route
+per file, so there's a single guard surface to keep correct. Each file
+write still goes through the same temp-file + rename + Prettier
+treatment as Phase 2; the rename step retries a few times on failure
+(`renameWithRetry`) since Windows can transiently refuse to rename onto a
+file another process (Turbopack's own dev-server watcher, reading the
+file to hot-reload it) has open — this was an observed, not just
+theoretical, failure while building this phase.
 
 - **Accessibility contrast** — compute WCAG ratios, don't eyeball. On dark
   Figma chrome, UI text must clear AA against `#1E1E1E`/`#2C2C2C`; artboard
@@ -498,6 +593,10 @@ dev`/`tsc` won't catch it).
   it in `globals.css`) `--font-display`. One family for the whole type
   system now — chrome and artboard content alike, no separate serif
 - **ESLint** + **Prettier** (with `prettier-plugin-tailwindcss`)
+- **`image-size`** — reads a real intrinsic width/height from an uploaded
+  photo server-side (`api/edit/upload`); deliberately not `sharp` — no
+  image processing needed, just the header parse, so the far smaller
+  dependency does the job
 
 ## Commands
 
