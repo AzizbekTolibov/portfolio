@@ -373,6 +373,8 @@ src/
   app/
     page.tsx                the one interactive route (?page=<slug>)
     work/[slug]/page.tsx     static per-project SEO page (+ OG/Twitter images)
+    edit/page.tsx            local-only editor shell — notFound() in
+                             production, see Editor below
     layout.tsx               Figma dark shell; root JSON-LD Person schema
     globals.css              Figma UI tokens + artboard-interior tokens
     icon.tsx, opengraph-image.tsx, twitter-image.tsx
@@ -380,8 +382,8 @@ src/
   components/
     canvas/                  Canvas (viewport), Frame, Group, TopBar,
                              LeftPanel, PagesPanel, LayerBrowser, RightPanel,
-                             InspectorContent, FrameCounter, CommandPalette,
-                             mobile equivalents…
+                             InspectorContent, EditInspector, FrameCounter,
+                             CommandPalette, mobile equivalents…
     semantic/                SemanticDocument, FrameLink — the parallel doc
   lib/
     canvas/
@@ -396,7 +398,27 @@ src/
   content/                   the content data model (see above)
 scripts/
   generate-project-photos.mjs   placeholder photo generator
+  verify-edit-guard.mjs         confirms GET /edit 404s against a real
+                                 `next build`, see Editor below
 ```
+
+### Editor (local-only, in progress)
+
+`/edit` (`src/app/edit/page.tsx`) reuses `CanvasWorkspace` with an
+`editMode` prop — same canvas, same navigation, but the right panel swaps
+`InspectorContent` for `EditInspector`, showing the selected frame/group's
+`x/y/w/h` (read-only so far — Phase 1 of the editor build; see
+`claude-code-prompt-editor.md`'s phases for what's next), and the top bar
+shows an "Edit mode" badge. It **must never be reachable in production**:
+the page calls `notFound()` whenever `process.env.NODE_ENV === "production"`
+(true for every real build — local `next start` or Vercel — regardless of
+the shell's own env, so this only ever renders under `next dev`), backed
+by `robots.ts`'s `disallow: "/edit"` and `robots: { index: false }` on the
+page itself as defense in depth. `npm run verify:edit-guard` starts a real
+production server against the last `next build` output and asserts
+`GET /edit` is a 404 — run it after `npm run build` whenever `/edit` (or
+its guard) changes. Every future `/api/edit/*` route handler must repeat
+the same `NODE_ENV` check independently; never rely on the page alone.
 
 ## Conventions still in force
 
@@ -447,3 +469,5 @@ dev`/`tsc` won't catch it).
 - `npm run format` / `format:check` — Prettier
 - `node scripts/generate-project-photos.mjs` — regenerate placeholder photos
   after editing photo counts in `content/data/projects.json`
+- `npm run verify:edit-guard` — confirms `/edit` 404s against the last
+  `npm run build` output; run after touching `src/app/edit/` or its guards

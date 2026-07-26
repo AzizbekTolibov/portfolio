@@ -49,6 +49,11 @@ type CanvasWorkspaceProps = {
   /** Only set when the URL genuinely had ?page=<slug> for a real project —
    * a bare "/" stays on Home rather than immediately rewriting itself. */
   initialPageId?: PageId;
+  /** Set only by /edit (see src/app/edit/page.tsx) — swaps the right
+   * panel for the read-only position inspector and shows the "Edit mode"
+   * badge. The canvas, selection, and navigation are otherwise identical
+   * to the public site; nothing here writes anything yet. */
+  editMode?: boolean;
 };
 
 function isTypingTarget(target: EventTarget | null) {
@@ -66,7 +71,10 @@ function readPageParam(): string | null {
   return new URLSearchParams(window.location.search).get("page");
 }
 
-export function CanvasWorkspace({ initialPageId }: CanvasWorkspaceProps) {
+export function CanvasWorkspace({
+  initialPageId,
+  editMode = false,
+}: CanvasWorkspaceProps) {
   const isMobile = useIsMobile();
 
   const [pageId, setPageId] = useState<PageId>(initialPageId ?? "home");
@@ -397,6 +405,7 @@ export function CanvasWorkspace({ initialPageId }: CanvasWorkspaceProps) {
           onZoomToPercent={zoomToPercent}
           onShare={handleShare}
           isMobile
+          editMode={editMode}
         />
         <div className="relative min-h-0 flex-1">
           {canvasEl}
@@ -457,6 +466,7 @@ export function CanvasWorkspace({ initialPageId }: CanvasWorkspaceProps) {
         onShare={handleShare}
         pageName={currentProject?.title}
         onGoHome={pageId !== "home" ? () => navigateToPage("home") : undefined}
+        editMode={editMode}
       />
       <div className="flex min-h-0 flex-1">
         <LeftPanel
@@ -478,7 +488,11 @@ export function CanvasWorkspace({ initialPageId }: CanvasWorkspaceProps) {
             <FrameCounter index={focusedIndex} total={frameOrder.length} />
           )}
         </div>
-        <RightPanel selectedNode={selectedNode} project={currentProject} />
+        <RightPanel
+          selectedNode={selectedNode}
+          project={currentProject}
+          editMode={editMode}
+        />
       </div>
       {paletteOpen && (
         <CommandPalette

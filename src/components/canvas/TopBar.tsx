@@ -28,6 +28,10 @@ type TopBarProps = {
    * `pageName` is set (i.e. those segments aren't already the current
    * location). Undefined on Home itself. */
   onGoHome?: () => void;
+  /** Set only on /edit — the one visible signal that this is the editor,
+   * not the public site, since the canvas itself renders identically in
+   * both. */
+  editMode?: boolean;
 };
 
 const ZOOM_PRESETS = [50, 100, 200];
@@ -187,6 +191,7 @@ export function TopBar({
   isMobile = false,
   pageName,
   onGoHome,
+  editMode = false,
 }: TopBarProps) {
   return (
     <header className="bg-panel border-off-white/10 relative z-20 flex h-12 shrink-0 items-center border-b px-3">
@@ -222,6 +227,11 @@ export function TopBar({
             </>
           )}
         </nav>
+        {editMode && (
+          <span className="bg-selection/15 text-selection shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wide uppercase">
+            Edit mode
+          </span>
+        )}
       </div>
 
       {!isMobile && (

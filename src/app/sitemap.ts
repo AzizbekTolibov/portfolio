@@ -5,6 +5,8 @@ import { getSiteUrl } from "@/lib/site-url";
 export default function sitemap(): MetadataRoute.Sitemap {
   const siteUrl = getSiteUrl();
 
+  // /edit (see src/app/edit/page.tsx) is deliberately absent — only "/"
+  // and "/work/[slug]" are ever listed here, so it was never a candidate.
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${siteUrl}/`, changeFrequency: "monthly", priority: 1 },
   ];
