@@ -493,7 +493,23 @@ function buildHomeNodes(): CanvasNode[] {
 // a column instead of a cell to a grid.
 // ==================================================================
 
-const TITLE_FRAME_HEIGHT = 420;
+// The title's own box has to fit `text-display`'s clamp() at its worst
+// case, not just the common one: measured directly, a one-line title
+// (e.g. "Auravest") renders at 128px, but a longer one that wraps (e.g.
+// "Harbor Analytics") renders at 256px. TITLE_TEXT_HEIGHT is sized for
+// the wrapped case; Frame.tsx's `display` variant bottom-aligns the text
+// within it, so a short one-line title still sits flush against Year
+// instead of leaving a gap.
+const TITLE_TEXT_HEIGHT = 270;
+const SECTION_GAP = 20;
+const YEAR_TEXT_HEIGHT = 30;
+const DESCRIPTION_TEXT_HEIGHT = 165;
+const OVERVIEW_BOTTOM_PADDING = 55;
+const TITLE_Y = 60;
+const YEAR_Y = TITLE_Y + TITLE_TEXT_HEIGHT + SECTION_GAP;
+const DESCRIPTION_Y = YEAR_Y + YEAR_TEXT_HEIGHT + SECTION_GAP;
+const TITLE_FRAME_HEIGHT =
+  DESCRIPTION_Y + DESCRIPTION_TEXT_HEIGHT + OVERVIEW_BOTTOM_PADDING;
 const PHOTO_CELL_WIDTH = 900;
 // Matches the 1600x1000 (1.6:1) placeholder photos' aspect ratio exactly,
 // so a photo frame never stretches or letterboxes its image.
@@ -556,9 +572,9 @@ function buildProjectPageNodes(project: Project): CanvasNode[] {
       name: "Title",
       parentId: overviewId,
       x: 60,
-      y: 60,
+      y: TITLE_Y,
       width: pageWidth - 120,
-      height: 100,
+      height: TITLE_TEXT_HEIGHT,
       content: { text: project.title, variant: "display" },
     },
     {
@@ -567,9 +583,9 @@ function buildProjectPageNodes(project: Project): CanvasNode[] {
       name: "Year",
       parentId: overviewId,
       x: 60,
-      y: 170,
+      y: YEAR_Y,
       width: pageWidth - 120,
-      height: 30,
+      height: YEAR_TEXT_HEIGHT,
       content: { text: project.year, variant: "caption" },
     },
     {
@@ -578,9 +594,9 @@ function buildProjectPageNodes(project: Project): CanvasNode[] {
       name: "Description",
       parentId: overviewId,
       x: 60,
-      y: 215,
+      y: DESCRIPTION_Y,
       width: pageWidth - 120,
-      height: 165,
+      height: DESCRIPTION_TEXT_HEIGHT,
       content: { text: project.description, variant: "body" },
     },
   ];

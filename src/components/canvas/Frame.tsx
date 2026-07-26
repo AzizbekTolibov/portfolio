@@ -31,7 +31,13 @@ const CORNER_CLASSES = [
 ];
 
 const TEXT_VARIANT_CLASSES: Record<string, string> = {
-  display: "text-display font-display text-gray-900",
+  // flex + items-end: `text-display`'s clamp() can render as one line or
+  // wrap to two depending on the title's length (verified: 128px vs
+  // 256px at this box's width), and its own box is sized for the
+  // worst case — bottom-aligning means a short single-line title still
+  // sits flush against whatever follows it (Year), with the slack
+  // collapsing above the text instead of appearing as a gap below it.
+  display: "text-display font-display text-gray-900 flex items-end",
   heading: "text-h2 font-display text-gray-900",
   body: "text-body text-gray-700 whitespace-pre-line",
   caption:
@@ -66,7 +72,18 @@ function FlatFrame({ frame }: { frame: FrameProps["node"] }) {
         <div className="flex flex-col items-center gap-2 text-center">
           <span
             className="font-display leading-tight"
-            style={{ fontSize: size.primary, color: textColor }}
+            style={{
+              fontSize: size.primary,
+              color: textColor,
+              // This is the largest text on the canvas but doesn't use
+              // the `text-display` utility (it needs its own per-kind
+              // pixel size, not the clamp() scale) — so it wouldn't
+              // otherwise inherit the tuned tracking/weight that utility
+              // carries. Reference the same tokens directly instead of
+              // duplicating their values.
+              letterSpacing: "var(--text-display--letter-spacing)",
+              fontWeight: "var(--text-display--font-weight)",
+            }}
           >
             {flatLabel}
           </span>

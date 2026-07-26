@@ -44,18 +44,22 @@
   --color-foreground: var(--color-off-white);
 
   /* Type scale — display and h1/h2 are fluid (clamp) since oversized,
-     responsive headlines are a core design principle. */
+     responsive headlines are a core design principle. Tracking/weight
+     tuned for a grotesque (Geist), not the serif (Fraunces) these were
+     originally set for — a grotesque wants tighter tracking and more
+     weight at display sizes than a serif does. */
   --text-display: clamp(3.5rem, 9vw, 8rem);
   --text-display--line-height: 1;
-  --text-display--letter-spacing: -0.02em;
-  --text-display--font-weight: 500;
+  --text-display--letter-spacing: -0.035em;
+  --text-display--font-weight: 600;
 
   --text-h1: clamp(2.5rem, 6vw, 4.5rem);
   --text-h1--line-height: 1.05;
-  --text-h1--letter-spacing: -0.01em;
+  --text-h1--letter-spacing: -0.02em;
 
   --text-h2: clamp(1.75rem, 3.5vw, 2.5rem);
   --text-h2--line-height: 1.15;
+  --text-h2--letter-spacing: -0.01em;
 
   --text-body: 1.125rem;
   --text-body--line-height: 1.6;
@@ -98,12 +102,13 @@
 }
 
 @theme inline {
-  /* Font families are wired to next/font CSS variables in layout.tsx. */
-  --font-display: var(--font-display);
+  /* Font families are wired to next/font CSS variables in layout.tsx.
+     --font-display intentionally aliases --font-sans, not a variable of
+     its own — Geist is the whole type system now, not a serif/sans
+     pairing. */
+  --font-display: var(--font-sans);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
-  /* Handwritten-feel face — sticky notes on the canvas only. */
-  --font-hand: var(--font-hand);
 }
 
 body {

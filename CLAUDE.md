@@ -400,8 +400,9 @@ dev`/`tsc` won't catch it).
 - **Framer Motion** — drives the viewport transform (motion values) and
   fly-to/page-switch animations; **Lenis is removed** (smooth _scroll_ is
   a page-document idea; there is no scroll within a page)
-- **next/font** — self-hosted UI sans (11px chrome); editorial display type
-  for artboard content
+- **next/font** — Geist self-hosted for both `--font-sans` and (aliased to
+  it in `globals.css`) `--font-display`. One family for the whole type
+  system now — chrome and artboard content alike, no separate serif
 - **ESLint** + **Prettier** (with `prettier-plugin-tailwindcss`)
 
 ## Commands

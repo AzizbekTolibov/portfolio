@@ -1,12 +1,5 @@
 import type { Metadata } from "next";
-import {
-  Caveat,
-  Fraunces,
-  Geist_Mono,
-  Instrument_Sans,
-  Inter_Tight,
-  Space_Grotesk,
-} from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { contact } from "@/content/about";
 import { site } from "@/content/site";
 import { getSiteUrl } from "@/lib/site-url";
@@ -14,68 +7,17 @@ import "./globals.css";
 
 // next/font self-hosts and preloads these automatically (preload: true is
 // the default) — display: "swap" is set explicitly so text using them
-// never blocks on a lagging font fetch.
-const fraunces = Fraunces({
-  variable: "--font-display",
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-  display: "swap",
-});
-
-export type UISans = "inter-tight" | "instrument" | "space";
-
-// UI sans, replacing Geist — three candidates, compared live at
-// /type-test. Swap this one value to try a different one; delete the two
-// losers (and their next/font declarations below) once a choice is made.
-export const UI_SANS: UISans = "inter-tight";
-
-// All three self-host and preload regardless of UI_SANS, so /type-test can
-// render them side by side. Each gets its own fixed variable name — a
-// next/font call's arguments must be statically-analyzable literals (the
-// compiler transforms this call at build time), so which one is "active"
-// can't be decided with a UI_SANS-dependent ternary *inside* the call the
-// way `content/canvas.ts`'s data-driven values can. Instead, --font-sans
-// itself is aliased to whichever one's variable matches UI_SANS, via a
-// plain inline style below (see UI_SANS_VARIABLE + <html style=...>) — the
-// selected face is still the only one anything in the app actually picks
-// up; the other two are just self-hosted and reachable for the
-// comparison page.
-const interTight = Inter_Tight({
-  variable: "--font-inter-tight",
+// never blocks on a lagging font fetch. Geist is the whole type system
+// now — --font-display aliases --font-sans in globals.css's
+// `@theme inline` rather than loading a second family.
+const geistSans = Geist({
+  variable: "--font-sans",
   subsets: ["latin"],
   display: "swap",
 });
-
-const instrumentSans = Instrument_Sans({
-  variable: "--font-instrument",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-// The CSS variable each candidate is reachable under, regardless of which
-// is currently selected — /type-test imports this to render "the
-// inter-tight candidate" by its own name.
-export const UI_SANS_VARIABLE: Record<UISans, string> = {
-  "inter-tight": "--font-inter-tight",
-  instrument: "--font-instrument",
-  space: "--font-space",
-};
 
 const geistMono = Geist_Mono({
   variable: "--font-mono",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-// Handwritten-feel face for the canvas's sticky notes only.
-const caveat = Caveat({
-  variable: "--font-hand",
   subsets: ["latin"],
   display: "swap",
 });
@@ -130,15 +72,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${interTight.variable} ${instrumentSans.variable} ${spaceGrotesk.variable} ${geistMono.variable} ${caveat.variable} h-full overflow-hidden antialiased`}
-      style={
-        {
-          // The one line that actually picks the UI sans: alias
-          // --font-sans to whichever candidate's own variable UI_SANS
-          // names. Swapping UI_SANS above is what this line responds to.
-          "--font-sans": `var(${UI_SANS_VARIABLE[UI_SANS]})`,
-        } as React.CSSProperties
-      }
+      className={`${geistSans.variable} ${geistMono.variable} h-full overflow-hidden antialiased`}
     >
       <body className="h-full overflow-hidden">
         <script
