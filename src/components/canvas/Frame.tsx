@@ -444,7 +444,15 @@ function ResizeHandles({
   ) {
     e.stopPropagation();
     e.preventDefault();
-    (e.target as Element).setPointerCapture(e.pointerId);
+    // Best-effort — pointer capture can throw (e.g. no real active pointer
+    // behind this id) without meaning the gesture itself is invalid, and a
+    // throw here must never prevent the pointermove/pointerup listeners
+    // below from being registered, or the whole resize silently breaks.
+    try {
+      (e.target as Element).setPointerCapture(e.pointerId);
+    } catch {
+      // Not fatal — window-level listeners below still track the drag.
+    }
     activeRef.current = {
       pos,
       startClientX: e.clientX,
