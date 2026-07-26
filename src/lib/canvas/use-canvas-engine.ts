@@ -9,6 +9,7 @@ import {
   type AnimationPlaybackControls,
 } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flyBetweenFrames } from "./config";
 import { durations, easings } from "@/lib/motion";
 import {
   clamp,
@@ -41,6 +42,24 @@ const ARROW_PAN_STEP = 60;
 const ZOOM_STEP_FACTOR = 1.2;
 const WHEEL_ZOOM_SENSITIVITY = 0.003;
 const CLICK_MOVE_THRESHOLD = 8;
+
+// ---- FOCUSED-state frame stepping (scroll / arrows / Space) ----
+/** Below this, a wheel tick is noise (a light touch on the trackpad), not a
+ * deliberate "advance" gesture. */
+const WHEEL_STEP_THRESHOLD = 12;
+/** One gesture (a trackpad swipe fires many small wheel events, and a held
+ * key repeats) must move exactly one frame — ignore further step triggers
+ * until the current camera travel has had time to land. */
+const STEP_COOLDOWN_MS = 900;
+
+// Figma-style custom cursors, screen-space by definition (a real CSS
+// `cursor`, never a DOM element inside the transformed canvas layer, which
+// is the whole point — see CLAUDE.md's navigation model). Hotspot
+// coordinates are the second/third numbers, matched to each glyph's tip.
+const CURSOR_ARROW = "url('/cursors/arrow.svg') 2 2, default";
+const CURSOR_HAND_OPEN = "url('/cursors/hand-open.svg') 12 14, grab";
+const CURSOR_HAND_CLOSED = "url('/cursors/hand-closed.svg') 12 14, grabbing";
+const CURSOR_ZOOM = "url('/cursors/zoom.svg') 9 9, zoom-in";
 
 type DragState = {
   active: boolean;
@@ -89,6 +108,11 @@ export type EngineOptions = {
    * that didn't pan both selects *and* zoom-fits the frame, LOD favors
    * detail sooner, and virtualization is tighter. */
   isMobile?: boolean;
+  /** The explicit, hand-authored viewing order (see content/canvas.ts) —
+   * when the current selection is one of these ids, scrolling, arrow keys,
+   * and Space step to the next/previous entry instead of panning/zooming
+   * (the FOCUSED state in CLAUDE.md's navigation model). */
+  frameOrder?: string[];
 };
 
 export function useCanvasEngine<T extends EngineNode>(
@@ -99,6 +123,7 @@ export function useCanvasEngine<T extends EngineNode>(
   const minZoom = options?.minZoom ?? MIN_ZOOM;
   const maxZoom = options?.maxZoom ?? MAX_ZOOM;
   const isMobile = options?.isMobile ?? false;
+  const frameOrder = options?.frameOrder;
   const lodFlatMax = isMobile ? MOBILE_LOD_FLAT_MAX : LOD_FLAT_MAX;
   const lodThumbnailMax = isMobile
     ? MOBILE_LOD_THUMBNAIL_MAX
@@ -129,6 +154,12 @@ export function useCanvasEngine<T extends EngineNode>(
   }, [handTool]);
 
   const spacePressedRef = useRef(false);
+  /** Cleared on every space keydown; set the moment a space-triggered drag
+   * actually moves the canvas — distinguishes "held space and dragged to
+   * pan" from "tapped space" (which, in FOCUSED state, advances a frame;
+   * see the keyup handler below). */
+  const spaceUsedForPanRef = useRef(false);
+  const ctrlPressedRef = useRef(false);
   const dragStateRef = useRef<DragState>({
     active: false,
     explicitPan: false,
@@ -141,6 +172,7 @@ export function useCanvasEngine<T extends EngineNode>(
   });
   const pinchStateRef = useRef<PinchState | null>(null);
   const activeAnimationsRef = useRef<AnimationPlaybackControls[]>([]);
+  const stepCooldownRef = useRef(false);
 
   const stopAnimations = useCallback(() => {
     activeAnimationsRef.current.forEach((controls) => controls.stop());
@@ -151,11 +183,13 @@ export function useCanvasEngine<T extends EngineNode>(
     const el = containerRef.current;
     if (!el) return;
     if (dragStateRef.current.active) {
-      el.style.cursor = "grabbing";
+      el.style.cursor = CURSOR_HAND_CLOSED;
+    } else if (ctrlPressedRef.current) {
+      el.style.cursor = CURSOR_ZOOM;
     } else if (spacePressedRef.current || handToolRef.current) {
-      el.style.cursor = "grab";
+      el.style.cursor = CURSOR_HAND_OPEN;
     } else {
-      el.style.cursor = "";
+      el.style.cursor = CURSOR_ARROW;
     }
   }, []);
 
@@ -164,13 +198,13 @@ export function useCanvasEngine<T extends EngineNode>(
   const flyTo = useCallback(
     (target: { x: number; y: number; scale: number }) => {
       stopAnimations();
-      if (shouldReduceMotion) {
+      if (shouldReduceMotion || !flyBetweenFrames) {
         x.set(target.x);
         y.set(target.y);
         scale.set(target.scale);
         return;
       }
-      const options = { duration: durations.base, ease: easings.out };
+      const options = { duration: durations.slow, ease: easings.inOut };
       activeAnimationsRef.current = [
         animate(x, target.x, options),
         animate(y, target.y, options),
@@ -240,6 +274,47 @@ export function useCanvasEngine<T extends EngineNode>(
     const target = fitTransformForRect(computeBoundingBox(frames));
     if (target) flyTo(target);
   }, [frames, fitTransformForRect, flyTo]);
+
+  /** Index of the current selection within the authored viewing order, or
+   * -1 when nothing's selected, the selection is a group, or there's no
+   * frameOrder at all — i.e. whether we're in the FOCUSED-state stepping
+   * sequence right now. */
+  const focusedIndex = frameOrder
+    ? frameOrder.indexOf(selectedId ?? "")
+    : -1;
+
+  /** Steps to the next (+1) or previous (-1) frame in the authored order.
+   * Clamps at either end rather than wrapping. No-op outside FOCUSED
+   * state (see focusedIndex above) or at a boundary. */
+  const stepFrame = useCallback(
+    (direction: 1 | -1) => {
+      if (!frameOrder || focusedIndex === -1) return;
+      const nextIndex = clamp(
+        focusedIndex + direction,
+        0,
+        frameOrder.length - 1,
+      );
+      if (nextIndex === focusedIndex) return;
+      const nextId = frameOrder[nextIndex];
+      setSelectedId(nextId);
+      zoomToFrame(nextId);
+    },
+    [frameOrder, focusedIndex, zoomToFrame],
+  );
+
+  /** One wheel/arrow/Space gesture must move exactly one frame — this
+   * guards stepFrame behind a cooldown spanning the travel animation. */
+  const stepFrameDebounced = useCallback(
+    (direction: 1 | -1) => {
+      if (stepCooldownRef.current) return;
+      stepCooldownRef.current = true;
+      stepFrame(direction);
+      setTimeout(() => {
+        stepCooldownRef.current = false;
+      }, STEP_COOLDOWN_MS);
+    },
+    [stepFrame],
+  );
 
   const zoomToSelection = useCallback(() => {
     if (selectedId) zoomToFrame(selectedId);
@@ -376,7 +451,9 @@ export function useCanvasEngine<T extends EngineNode>(
   }, [recomputeDerived]);
 
   // ---- wheel: two-finger trackpad pan, ctrl/cmd+wheel (and trackpad
-  // pinch, which browsers report as wheel+ctrlKey) zoom toward cursor ----
+  // pinch, which browsers report as wheel+ctrlKey) zoom toward cursor —
+  // unless a real frame is FOCUSED, in which case plain scrolling steps to
+  // the next/previous frame instead (ctrl/cmd+wheel still free-zooms) ----
 
   useEffect(() => {
     const el = containerRef.current;
@@ -384,18 +461,25 @@ export function useCanvasEngine<T extends EngineNode>(
 
     function onWheel(e: WheelEvent) {
       e.preventDefault();
-      stopAnimations();
       if (e.ctrlKey || e.metaKey) {
+        stopAnimations();
         const zoomFactor = Math.exp(-e.deltaY * WHEEL_ZOOM_SENSITIVITY);
         zoomAt(e.clientX, e.clientY, scale.get() * zoomFactor);
-      } else {
-        panBy(-e.deltaX, -e.deltaY);
+        return;
       }
+      if (focusedIndex !== -1) {
+        if (Math.abs(e.deltaY) >= WHEEL_STEP_THRESHOLD) {
+          stepFrameDebounced(e.deltaY > 0 ? 1 : -1);
+        }
+        return;
+      }
+      stopAnimations();
+      panBy(-e.deltaX, -e.deltaY);
     }
 
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [zoomAt, panBy, scale, stopAnimations]);
+  }, [zoomAt, panBy, scale, stopAnimations, focusedIndex, stepFrameDebounced]);
 
   // ---- pointer: space/middle-mouse/hand-tool drag to pan, touch pinch to
   // zoom, plain click (no drag) to select ----
@@ -481,6 +565,7 @@ export function useCanvasEngine<T extends EngineNode>(
         CLICK_MOVE_THRESHOLD
       ) {
         drag.moved = true;
+        if (spacePressedRef.current) spaceUsedForPanRef.current = true;
       }
       if (drag.active) panBy(dx, dy);
     }
@@ -498,9 +583,14 @@ export function useCanvasEngine<T extends EngineNode>(
           ) as HTMLElement | null;
           const frameId = frameEl?.dataset.frameId ?? null;
           setSelectedId(frameId);
-          // Mobile: a tap always zoom-fits — there's no free-zoom-then-tap
-          // gesture on a phone, so every selection is also a navigation.
-          if (isMobile && frameId) zoomToFrame(frameId);
+          if (frameId) {
+            // Clicking any frame enters FOCUSED state — the camera travels
+            // to fill ~80% of the viewport with it.
+            zoomToFrame(frameId);
+          } else {
+            // Empty canvas: back to OVERVIEW.
+            zoomToFit();
+          }
         }
         dragStateRef.current = { ...drag, active: false, pointerId: null };
         updateCursor();
@@ -523,8 +613,8 @@ export function useCanvasEngine<T extends EngineNode>(
     scale,
     stopAnimations,
     updateCursor,
-    isMobile,
     zoomToFrame,
+    zoomToFit,
   ]);
 
   // ---- keyboard ----
@@ -545,13 +635,21 @@ export function useCanvasEngine<T extends EngineNode>(
 
       if (e.code === "Space" && !spacePressedRef.current) {
         spacePressedRef.current = true;
+        spaceUsedForPanRef.current = false;
         updateCursor();
         e.preventDefault();
         return;
       }
 
+      if (e.key === "Control" || e.key === "Meta") {
+        ctrlPressedRef.current = true;
+        updateCursor();
+        return;
+      }
+
       if (e.key === "Escape") {
         setSelectedId(null);
+        zoomToFit();
         return;
       }
 
@@ -598,6 +696,22 @@ export function useCanvasEngine<T extends EngineNode>(
         return;
       }
 
+      // FOCUSED state: arrows step through the authored frame order instead
+      // of panning (forward = right/down, back = left/up). OVERVIEW (or a
+      // group selection, which isn't in frameOrder): the original free pan.
+      if (focusedIndex !== -1) {
+        if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+          e.preventDefault();
+          stepFrameDebounced(1);
+          return;
+        }
+        if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+          e.preventDefault();
+          stepFrameDebounced(-1);
+          return;
+        }
+      }
+
       const arrowMap: Record<string, [number, number]> = {
         ArrowUp: [0, ARROW_PAN_STEP],
         ArrowDown: [0, -ARROW_PAN_STEP],
@@ -615,6 +729,17 @@ export function useCanvasEngine<T extends EngineNode>(
     function onKeyUp(e: KeyboardEvent) {
       if (e.code === "Space") {
         spacePressedRef.current = false;
+        updateCursor();
+        // A tap (no intervening pan-drag) advances a frame in FOCUSED
+        // state — the same "next" gesture as scrolling forward. Holding
+        // Space and dragging to pan is unaffected (handled entirely by the
+        // pointer handlers above).
+        if (!spaceUsedForPanRef.current && focusedIndex !== -1) {
+          stepFrameDebounced(1);
+        }
+      }
+      if (e.key === "Control" || e.key === "Meta") {
+        ctrlPressedRef.current = false;
         updateCursor();
       }
     }
@@ -634,6 +759,8 @@ export function useCanvasEngine<T extends EngineNode>(
     zoomToFit,
     zoomToSelection,
     resetZoom,
+    focusedIndex,
+    stepFrameDebounced,
   ]);
 
   // Keep cursor in sync when hand tool toggles via keyboard (not just

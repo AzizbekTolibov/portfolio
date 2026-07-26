@@ -12,8 +12,7 @@ import type { CaseStudySectionId, Project, PropertyGroup } from "./types";
  * src/lib/canvas/tree.ts), so they can't drift apart.
  */
 
-export type CanvasNodeType =
-  "frame" | "group" | "sticky" | "image" | "text" | "comment";
+export type CanvasNodeType = "frame" | "group" | "image" | "text";
 
 export type FrameKind =
   | "site-cover"
@@ -28,23 +27,6 @@ export type FrameKind =
   | "contact";
 
 export type TextVariant = "display" | "heading" | "body" | "caption";
-
-export type CommentAuthor = {
-  name: string;
-  initials: string;
-  color: string;
-};
-
-export type CommentReply = CommentAuthor & {
-  timestamp: string;
-  body: string;
-};
-
-export type CommentThread = CommentAuthor & {
-  timestamp: string;
-  body: string;
-  replies?: CommentReply[];
-};
 
 type BaseNode = {
   id: string;
@@ -77,8 +59,6 @@ export type CanvasNode =
       type: "image";
       content: { src: string; alt: string; blurColor: string };
     })
-  | (BaseNode & { type: "sticky"; content: { text: string } })
-  | (BaseNode & { type: "comment"; content: CommentThread })
   | (BaseNode & {
       type: "property-groups";
       content: { sections: { heading: string; groups: PropertyGroup[] }[] };
@@ -168,17 +148,24 @@ const siteCover: CanvasNode[] = [
   },
 ];
 
-// ---- Project clusters — one per featured project, arranged in a row ----
+// ---- Project clusters — one per featured project, in a 2x2 grid ----
+// (see CLAUDE.md's navigation model: a squarer ~16:9 bounding box makes the
+// OVERVIEW zoom-to-fit actually readable, instead of one long horizontal
+// strip that shrinks everything to microscopic size.)
 
 const CLUSTER_WIDTH = 4000;
 const CLUSTER_HEIGHT = 2600;
-const CLUSTER_Y = 1400;
-const CLUSTER_XS = [0, 4800, 9600, 14400];
+const CLUSTER_POSITIONS = [
+  { x: 0, y: 1400 },
+  { x: 5000, y: 1400 },
+  { x: 0, y: 4400 },
+  { x: 5000, y: 4400 },
+];
 const GUTTER = 200;
 
 function projectCluster(project: Project, index: number): CanvasNode[] {
-  const gx = CLUSTER_XS[index];
-  const gy = CLUSTER_Y;
+  const gx = CLUSTER_POSITIONS[index].x;
+  const gy = CLUSTER_POSITIONS[index].y;
   const groupId = `${project.slug}-group`;
 
   const coverId = `${project.slug}-cover`;
@@ -388,328 +375,10 @@ const workClusters = featuredProjects.flatMap((project, i) =>
   projectCluster(project, i),
 );
 
-// ---- Comment threads — design rationale, pinned to project frames ----
-// Figma's comment system repurposed to carry real decisions instead of
-// review feedback: why a call was made, what tradeoff it cost, and (where
-// it's honest) what I'd do differently now.
-
-const AT: CommentAuthor = {
-  name: "Azizbek Tolibov",
-  initials: "AT",
-  color: "#0D99FF",
-};
-const RK: CommentAuthor = {
-  name: "Rustam Karimov",
-  initials: "RK",
-  color: "#9747FF",
-};
-const MS: CommentAuthor = {
-  name: "Malika Saidova",
-  initials: "MS",
-  color: "#E07A5F",
-};
-
-function pin(
-  id: string,
-  parentId: string,
-  x: number,
-  y: number,
-  thread: CommentThread,
-): CanvasNode {
-  return {
-    id,
-    type: "comment",
-    name: "Comment",
-    parentId,
-    x,
-    y,
-    width: 24,
-    height: 24,
-    content: thread,
-  };
-}
-
-/** The same rect math projectCluster() uses to lay out a project's five
- * frames — recomputed here so pins can be placed against real frame
- * geometry without projectCluster having to export its internals. */
-function projectFrameRects(index: number) {
-  const gx = CLUSTER_XS[index];
-  const gy = CLUSTER_Y;
-  return {
-    cover: { x: gx, y: gy, width: 1440, height: 900 },
-    research: { x: gx + 1640, y: gy, width: 1440, height: 900 },
-    userFlow: { x: gx, y: gy + 1100, width: 1200, height: 1300 },
-    wireframes: { x: gx + 1400, y: gy + 1100, width: 1200, height: 1300 },
-    finalUi: { x: gx + 2800, y: gy + 1100, width: 1200, height: 1300 },
-  };
-}
-
-const auravestRects = projectFrameRects(0);
-const northClinicRects = projectFrameRects(1);
-const fieldnoteRects = projectFrameRects(2);
-const loopMarketRects = projectFrameRects(3);
-
-const commentThreads: CanvasNode[] = [
-  // ---- Auravest ----
-  pin(
-    "c-auravest-1",
-    "auravest-cover",
-    auravestRects.cover.x + 1180,
-    auravestRects.cover.y + 120,
-    {
-      ...AT,
-      timestamp: "Feb 2025",
-      body: "Almost called this ‘AuraVest’ with a capital V to match the old brand mark. Dropped it — the case study isn’t about the logo, and the capital V read as trying too hard.",
-    },
-  ),
-  pin(
-    "c-auravest-2",
-    "auravest-research",
-    auravestRects.research.x + 220,
-    auravestRects.research.y + 220,
-    {
-      ...AT,
-      timestamp: "Feb 2025",
-      body: "The ‘I don’t want a report, I want to know if I’m okay’ line came from participant 7, verbatim. I was tempted to smooth it into something more polished — the bluntness is what actually convinced the team.",
-      replies: [
-        {
-          ...MS,
-          timestamp: "Feb 2025",
-          body: "Still the best slide from that research readout. Nobody argued with a direct quote.",
-        },
-      ],
-    },
-  ),
-  pin(
-    "c-auravest-3",
-    "auravest-user-flow",
-    auravestRects.userFlow.x + 200,
-    auravestRects.userFlow.y + 950,
-    {
-      ...AT,
-      timestamp: "Feb 2025",
-      body: "Cut onboarding from six screens to two by making account-linking optional. Tradeoff: more people finish signup, but more people also never link a real account.",
-      replies: [
-        {
-          ...AT,
-          timestamp: "Feb 2025",
-          body: "I’d add a day-3 nudge for anyone who skipped linking if I did this again — we never built that, and I think it’s quietly costing activation.",
-        },
-      ],
-    },
-  ),
-  pin(
-    "c-auravest-4",
-    "auravest-final-ui",
-    auravestRects.finalUi.x + 900,
-    auravestRects.finalUi.y + 150,
-    {
-      ...AT,
-      timestamp: "Mar 2025",
-      body: "Kept the charts instead of cutting them entirely, even though 80% of sessions only touched the one-line summary.",
-      replies: [
-        {
-          ...RK,
-          timestamp: "Mar 2025",
-          body: "Did we ever validate that the other 20% actually needed full charts, or just that they were there?",
-        },
-        {
-          ...AT,
-          timestamp: "Mar 2025",
-          body: "Fair — we didn’t. I trusted the interview signal over instrumenting it properly. Next time I’d run that A/B before shipping, not after.",
-        },
-      ],
-    },
-  ),
-
-  // ---- North Clinic ----
-  pin(
-    "c-north-clinic-1",
-    "north-clinic-cover",
-    northClinicRects.cover.x + 1180,
-    northClinicRects.cover.y + 120,
-    {
-      ...AT,
-      timestamp: "Sep 2024",
-      body: "This cover is a stock photo. Swap it for a real waiting-room shot before this goes live — the current one reads more corporate than the product actually is.",
-    },
-  ),
-  pin(
-    "c-north-clinic-2",
-    "north-clinic-research",
-    northClinicRects.research.x + 220,
-    northClinicRects.research.y + 220,
-    {
-      ...AT,
-      timestamp: "Sep 2024",
-      body: "We sat in the actual waiting room instead of a lab. Half our best insights came from watching people abandon the paper form, not from what they said in interviews.",
-      replies: [
-        {
-          ...RK,
-          timestamp: "Sep 2024",
-          body: "The paper-form observation is what got the calendar redesign approved. Good call pushing for field visits over another round table.",
-        },
-      ],
-    },
-  ),
-  pin(
-    "c-north-clinic-3",
-    "north-clinic-user-flow",
-    northClinicRects.userFlow.x + 200,
-    northClinicRects.userFlow.y + 950,
-    {
-      ...AT,
-      timestamp: "Sep 2024",
-      body: "Booking defaults to ‘next available’ instead of a full calendar grid. Clinic staff pushed back hard on this in review.",
-      replies: [
-        {
-          ...MS,
-          timestamp: "Sep 2024",
-          body: "We still get the occasional patient asking to just see the whole week, for what it’s worth.",
-        },
-        {
-          ...AT,
-          timestamp: "Oct 2024",
-          body: "Yeah — I’d add a ‘see more times’ link now instead of assuming next-available covers everyone. Optimizing for the common case shouldn’t mean hiding the rest.",
-        },
-      ],
-    },
-  ),
-  pin(
-    "c-north-clinic-4",
-    "north-clinic-final-ui",
-    northClinicRects.finalUi.x + 900,
-    northClinicRects.finalUi.y + 150,
-    {
-      ...AT,
-      timestamp: "Oct 2024",
-      body: "The confirmation screen has almost no visual hierarchy on purpose — one line, one button. For this audience, calm mattered more than informative.",
-    },
-  ),
-
-  // ---- Fieldnote ----
-  pin(
-    "c-fieldnote-1",
-    "fieldnote-cover",
-    fieldnoteRects.cover.x + 1180,
-    fieldnoteRects.cover.y + 120,
-    {
-      ...AT,
-      timestamp: "May 2024",
-      body: "Early pitch decks called this a ‘Notion competitor.’ Glad that framing died in week one — chasing Notion would’ve meant inheriting Notion’s complexity, exactly what this audience doesn’t want.",
-    },
-  ),
-  pin(
-    "c-fieldnote-2",
-    "fieldnote-research",
-    fieldnoteRects.research.x + 220,
-    fieldnoteRects.research.y + 220,
-    {
-      ...AT,
-      timestamp: "May 2024",
-      body: "Offline-first wasn’t a nice-to-have, it was the whole brief. Most interviewees had gone days without signal in the field.",
-      replies: [
-        {
-          ...MS,
-          timestamp: "May 2024",
-          body: "Which is why the sync-status indicator became such a big deal in testing — people needed to trust it before they’d stop keeping paper as backup.",
-        },
-      ],
-    },
-  ),
-  pin(
-    "c-fieldnote-3",
-    "fieldnote-wireframes",
-    fieldnoteRects.wireframes.x + 600,
-    fieldnoteRects.wireframes.y + 650,
-    {
-      ...AT,
-      timestamp: "May 2024",
-      body: "Early wireframes had a folder tree. Killed it by week two — tags plus location and time metadata matched how researchers actually think about their notes. Folders didn’t.",
-    },
-  ),
-  pin(
-    "c-fieldnote-4",
-    "fieldnote-final-ui",
-    fieldnoteRects.finalUi.x + 900,
-    fieldnoteRects.finalUi.y + 150,
-    {
-      ...AT,
-      timestamp: "Jun 2024",
-      body: "One persistent capture button instead of a ‘new note’ menu with type options. Fewer decisions when you’re standing in a field with wet hands.",
-      replies: [
-        {
-          ...AT,
-          timestamp: "Jun 2024",
-          body: "In hindsight it hides voice-memo mode a little too well — usage is lower than I’d expect, and that’s a discoverability problem I underestimated.",
-        },
-      ],
-    },
-  ),
-
-  // ---- Loop Market ----
-  pin(
-    "c-loop-market-1",
-    "loop-market-cover",
-    loopMarketRects.cover.x + 1180,
-    loopMarketRects.cover.y + 120,
-    {
-      ...AT,
-      timestamp: "Nov 2023",
-      body: "This one’s a systems project wearing a UI project’s cover. Most of the actual work — the token structure — is invisible in a single screenshot.",
-    },
-  ),
-  pin(
-    "c-loop-market-2",
-    "loop-market-research",
-    loopMarketRects.research.x + 220,
-    loopMarketRects.research.y + 220,
-    {
-      ...AT,
-      timestamp: "Nov 2023",
-      body: "Audited eleven existing storefronts before touching the system. Was tempted to skip this to move faster — would’ve been a mistake, that’s exactly where the token structure came from.",
-    },
-  ),
-  pin(
-    "c-loop-market-3",
-    "loop-market-user-flow",
-    loopMarketRects.userFlow.x + 200,
-    loopMarketRects.userFlow.y + 950,
-    {
-      ...AT,
-      timestamp: "Dec 2023",
-      body: "Sellers configure their storefront through a token panel, not a raw theme editor. Tradeoff: less flexibility, far fewer broken layouts.",
-      replies: [
-        {
-          ...RK,
-          timestamp: "Dec 2023",
-          body: "A few power sellers in the beta specifically asked for CSS override access — did we ever revisit saying no to that?",
-        },
-        {
-          ...AT,
-          timestamp: "Dec 2023",
-          body: "Not seriously enough. It’s still on the backlog, and I’ve been treating ‘no CSS access’ as more settled than it should be.",
-        },
-      ],
-    },
-  ),
-  pin(
-    "c-loop-market-4",
-    "loop-market-final-ui",
-    loopMarketRects.finalUi.x + 900,
-    loopMarketRects.finalUi.y + 150,
-    {
-      ...AT,
-      timestamp: "Dec 2023",
-      body: "Deliberately kept the default component set small. Every seller wanted the system to do more; almost none of them used what was already there, so ‘more options’ felt like the wrong problem to solve.",
-    },
-  ),
-];
-
 // ---- About cluster ----
 
-const ABOUT_X = 0;
-const ABOUT_Y = -1800;
+const ABOUT_X = -3200;
+const ABOUT_Y = 0;
 
 const aboutCluster: CanvasNode[] = [
   {
@@ -815,7 +484,7 @@ const contactCluster: CanvasNode[] = [
     id: "contact",
     type: "frame",
     name: "Contact",
-    x: 19200,
+    x: 5000,
     y: 0,
     width: 1440,
     height: 900,
@@ -826,7 +495,7 @@ const contactCluster: CanvasNode[] = [
     type: "text",
     name: "Heading",
     parentId: "contact",
-    x: 19280,
+    x: 5080,
     y: 120,
     width: 1280,
     height: 100,
@@ -837,7 +506,7 @@ const contactCluster: CanvasNode[] = [
     type: "text",
     name: "Contact details",
     parentId: "contact",
-    x: 19280,
+    x: 5080,
     y: 260,
     width: 1280,
     height: 500,
@@ -845,45 +514,50 @@ const contactCluster: CanvasNode[] = [
   },
 ];
 
-// ---- Sticky notes — working notes scattered through the gutters ----
-
-const stickies: CanvasNode[] = [
-  { id: "sticky-1", x: 1600, y: 300, text: "tighten kerning on name?" },
-  {
-    id: "sticky-2",
-    x: 400,
-    y: 1050,
-    text: "no scroll — remember that when it's tempting",
-  },
-  { id: "sticky-3", x: 4200, y: 1700, text: "get real Auravest shots" },
-  { id: "sticky-4", x: 9000, y: 2200, text: "client logo ok to show?" },
-  { id: "sticky-5", x: 13800, y: 1700, text: "reorder case studies by year?" },
-  { id: "sticky-6", x: 800, y: 4100, text: "measure engagement lift again" },
-  { id: "sticky-7", x: 1800, y: -200, text: "new headshot before launch" },
-  { id: "sticky-8", x: 600, y: -250, text: "shorten bio para two" },
-  { id: "sticky-9", x: 18700, y: 600, text: "double check résumé link" },
-  {
-    id: "sticky-10",
-    x: 8000,
-    y: 1150,
-    text: "add motion to case-study transitions?",
-  },
-].map((s): CanvasNode => ({
-  id: s.id,
-  type: "sticky",
-  name: "Note",
-  x: s.x,
-  y: s.y,
-  width: 240,
-  height: 240,
-  content: { text: s.text },
-}));
-
 export const canvasNodes: CanvasNode[] = [
   ...siteCover,
   ...workClusters,
-  ...commentThreads,
   ...aboutCluster,
   ...contactCluster,
-  ...stickies,
+];
+
+/**
+ * The explicit viewing order for FOCUSED-state navigation (scroll / arrow
+ * keys / Space step through this list one at a time) and the mobile
+ * Prev/Next bar. Hand-authored on purpose — see CLAUDE.md's navigation
+ * model — so the sequence can be reordered here without touching spatial
+ * coordinates or component code.
+ */
+export const FRAME_ORDER: string[] = [
+  "cover",
+
+  "auravest-cover",
+  "auravest-research",
+  "auravest-user-flow",
+  "auravest-wireframes",
+  "auravest-final-ui",
+
+  "north-clinic-cover",
+  "north-clinic-research",
+  "north-clinic-user-flow",
+  "north-clinic-wireframes",
+  "north-clinic-final-ui",
+
+  "fieldnote-cover",
+  "fieldnote-research",
+  "fieldnote-user-flow",
+  "fieldnote-wireframes",
+  "fieldnote-final-ui",
+
+  "loop-market-cover",
+  "loop-market-research",
+  "loop-market-user-flow",
+  "loop-market-wireframes",
+  "loop-market-final-ui",
+
+  "about-portrait",
+  "about-bio",
+  "about-skills",
+
+  "contact",
 ];

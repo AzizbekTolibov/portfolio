@@ -9,6 +9,7 @@ type LeftPanelProps = {
   collapsed: boolean;
   onToggleCollapse: () => void;
   selectedId: string | null;
+  hoveredId: string | null;
   onSelectFrame: (frameId: string) => void;
   onHoverFrame: (frameId: string | null) => void;
 };
@@ -20,6 +21,7 @@ export function LeftPanel({
   collapsed,
   onToggleCollapse,
   selectedId,
+  hoveredId,
   onSelectFrame,
   onHoverFrame,
 }: LeftPanelProps) {
@@ -43,6 +45,7 @@ export function LeftPanel({
       <LayerBrowser
         layerTree={layerTree}
         selectedId={selectedId}
+        hoveredId={hoveredId}
         onSelectFrame={onSelectFrame}
         onHoverFrame={onHoverFrame}
         headerExtra={

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  CommentToolIcon,
   ExternalLinkIcon,
   FitIcon,
   FrameLayerIcon,
@@ -28,7 +27,6 @@ type CommandPaletteProps = {
   onZoomToFit: () => void;
   onCopyEmail: () => void;
   onOpenResume: () => void;
-  onToggleComments: () => void;
 };
 
 /** Subsequence fuzzy match — every query character must appear in order in
@@ -60,11 +58,10 @@ function ItemIcon({ item }: { item: PaletteItem }) {
       <FrameLayerIcon className={className} />
     );
   }
-  if (item.id === "zoom-fit") return <FitIcon className={className} />;
   if (item.id === "copy-email") return <MailIcon className={className} />;
   if (item.id === "open-resume")
     return <ExternalLinkIcon className={className} />;
-  return <CommentToolIcon className={className} />;
+  return <FitIcon className={className} />;
 }
 
 export function CommandPalette({
@@ -74,7 +71,6 @@ export function CommandPalette({
   onZoomToFit,
   onCopyEmail,
   onOpenResume,
-  onToggleComments,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -100,14 +96,8 @@ export function CommandPalette({
         label: "Open résumé",
         run: onOpenResume,
       },
-      {
-        kind: "action",
-        id: "toggle-comments",
-        label: "Toggle comments",
-        run: onToggleComments,
-      },
     ],
-    [onZoomToFit, onCopyEmail, onOpenResume, onToggleComments],
+    [onZoomToFit, onCopyEmail, onOpenResume],
   );
 
   const allItems: PaletteItem[] = useMemo(

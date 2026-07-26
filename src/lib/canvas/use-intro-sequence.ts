@@ -20,11 +20,13 @@ export type IntroPhase = "loading" | "animating" | "done";
 
 /**
  * Figma's file-loading sequence, replacing a conventional intro: a loading
- * screen, then a fade-in already zoomed way out, a zoom-to-fit, and a
- * second gentle zoom into the initial frame (the Cover by default, or
- * whatever frame a deep link named) — skippable at any point, and skipped
- * entirely under prefers-reduced-motion (straight to that frame, which the
- * engine's own mount effect already does via initialFrameId).
+ * screen, then a fade-in already zoomed way out, a zoom-to-fit, and — only
+ * when a deep link named a specific frame — a second gentle zoom into it.
+ * With no deep link, the sequence ends at the zoom-to-fit itself: OVERVIEW
+ * (every frame visible) is where the file lands by default, per CLAUDE.md's
+ * navigation model. Skippable at any point, and skipped entirely under
+ * prefers-reduced-motion (straight to the final target, which the engine's
+ * own mount effect already does via initialFrameId).
  */
 export function useIntroSequence({
   containerRef,
@@ -77,9 +79,9 @@ export function useIntroSequence({
     cancelledRef.current = true;
     activeAnimationsRef.current.forEach((c) => c.stop());
     activeAnimationsRef.current = [];
-    if (targetFrame) jumpTo(targetFrame);
+    if (frames.length > 0) jumpTo(targetFrame ?? computeBoundingBox(frames));
     setPhase("done");
-  }, [phase, targetFrame, jumpTo]);
+  }, [phase, targetFrame, frames, jumpTo]);
 
   useEffect(() => {
     if (shouldReduceMotion) return;
@@ -111,10 +113,16 @@ export function useIntroSequence({
       if (cancelledRef.current) return;
       setPhase("animating");
 
+      // Re-measure rather than reuse the pre-sleep `viewport` — panels can
+      // still be settling their final width this early (fonts, hydration),
+      // and a stale size here bakes a wrong scale into the whole sequence.
+      // (el is a const already null-checked above; TS just can't see that
+      // narrowing across this closure.)
+      const freshViewport = el!.getBoundingClientRect();
       const fitTarget = computeFitTransform(
         bbox,
-        viewport.width,
-        viewport.height,
+        freshViewport.width,
+        freshViewport.height,
         FIT_RATIO,
         minZoom,
         maxZoom,
@@ -137,33 +145,36 @@ export function useIntroSequence({
       await Promise.all(zoomToFitAnims);
       if (cancelledRef.current) return;
 
-      const finalTarget = targetFrame
-        ? computeFitTransform(
-            targetFrame,
-            viewport.width,
-            viewport.height,
-            FIT_RATIO,
-            minZoom,
-            maxZoom,
-          )
-        : fitTarget;
-      const zoomToCoverAnims = [
-        animate(x, finalTarget.x, {
-          duration: ZOOM_TO_COVER_MS / 1000,
-          ease: easings.out,
-        }),
-        animate(y, finalTarget.y, {
-          duration: ZOOM_TO_COVER_MS / 1000,
-          ease: easings.out,
-        }),
-        animate(scale, finalTarget.scale, {
-          duration: ZOOM_TO_COVER_MS / 1000,
-          ease: easings.out,
-        }),
-      ];
-      activeAnimationsRef.current = zoomToCoverAnims;
-      await Promise.all(zoomToCoverAnims);
-      if (cancelledRef.current) return;
+      // No deep link: OVERVIEW (the fit-all view just reached) is the
+      // landing state — done. A deep link gets one more gentle zoom into
+      // its specific frame (FOCUSED).
+      if (targetFrame) {
+        const finalTarget = computeFitTransform(
+          targetFrame,
+          freshViewport.width,
+          freshViewport.height,
+          FIT_RATIO,
+          minZoom,
+          maxZoom,
+        );
+        const zoomToFrameAnims = [
+          animate(x, finalTarget.x, {
+            duration: ZOOM_TO_COVER_MS / 1000,
+            ease: easings.out,
+          }),
+          animate(y, finalTarget.y, {
+            duration: ZOOM_TO_COVER_MS / 1000,
+            ease: easings.out,
+          }),
+          animate(scale, finalTarget.scale, {
+            duration: ZOOM_TO_COVER_MS / 1000,
+            ease: easings.out,
+          }),
+        ];
+        activeAnimationsRef.current = zoomToFrameAnims;
+        await Promise.all(zoomToFrameAnims);
+        if (cancelledRef.current) return;
+      }
       setPhase("done");
     }
 

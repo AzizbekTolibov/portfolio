@@ -37,12 +37,16 @@ function RowIcon({ type }: { type: "frame" | "group" }) {
 export function FileTab({
   layerTree,
   selectedId,
+  hoveredId,
   onSelectFrame,
   onHoverFrame,
   dense = true,
 }: {
   layerTree: LayerTreeNode[];
   selectedId: string | null;
+  /** Set when the *canvas* frame is hovered (not this row) — highlights
+   * the matching row so hover reads both ways. */
+  hoveredId?: string | null;
   onSelectFrame: (frameId: string) => void;
   onHoverFrame: (frameId: string | null) => void;
   /** Desktop (mouse) rows are compact; mobile (touch) rows need a taller
@@ -131,6 +135,7 @@ export function FileTab({
         const { node, children } = row.entry;
         const isFrameSelected = node.type === "frame" && node.id === selectedId;
         const isGroupSelected = node.type === "group" && node.id === selectedId;
+        const isHovered = hoveredId === node.id;
         const hasChildren = children.length > 0;
         const isExpanded = hasChildren && expanded.has(node.id);
         return (
@@ -154,7 +159,9 @@ export function FileTab({
             className={`flex ${dense ? "h-[26px]" : "h-[38px]"} w-full items-center gap-1.5 pr-2 text-left font-sans text-[11px] outline-none ${
               isFrameSelected || isGroupSelected
                 ? "bg-selection/15 text-selection"
-                : "text-off-white/75 hover:bg-white/5 focus-visible:bg-white/5"
+                : isHovered
+                  ? "bg-white/5 text-off-white/90"
+                  : "text-off-white/75 hover:bg-white/5 focus-visible:bg-white/5"
             }`}
           >
             {hasChildren ? (
@@ -191,6 +198,7 @@ function AssetsTab() {
 export function LayerBrowser({
   layerTree,
   selectedId,
+  hoveredId,
   onSelectFrame,
   onHoverFrame,
   dense = true,
@@ -198,6 +206,7 @@ export function LayerBrowser({
 }: {
   layerTree: LayerTreeNode[];
   selectedId: string | null;
+  hoveredId?: string | null;
   onSelectFrame: (frameId: string) => void;
   onHoverFrame: (frameId: string | null) => void;
   dense?: boolean;
@@ -238,6 +247,7 @@ export function LayerBrowser({
         <FileTab
           layerTree={layerTree}
           selectedId={selectedId}
+          hoveredId={hoveredId}
           onSelectFrame={onSelectFrame}
           onHoverFrame={onHoverFrame}
           dense={dense}

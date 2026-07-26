@@ -3,19 +3,16 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { contact } from "@/content/about";
-import type { CanvasNode } from "@/content/canvas";
+import { FRAME_ORDER, type CanvasNode } from "@/content/canvas";
 import { projects } from "@/content/projects";
-import {
-  buildLayerTree,
-  flattenFrames,
-  groupChildrenByParent,
-} from "@/lib/canvas/tree";
+import { buildLayerTree, groupChildrenByParent } from "@/lib/canvas/tree";
 import { useCanvasEngine } from "@/lib/canvas/use-canvas-engine";
 import { useIntroSequence } from "@/lib/canvas/use-intro-sequence";
 import { useIsMobile } from "@/lib/canvas/use-is-mobile";
 import { SemanticDocument } from "@/components/semantic/SemanticDocument";
 import { Canvas } from "./Canvas";
 import type { NavigateItem } from "./CommandPalette";
+import { FrameCounter } from "./FrameCounter";
 import { IntroOverlay } from "./IntroOverlay";
 import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
 import { LeftPanel } from "./LeftPanel";
@@ -32,11 +29,9 @@ const CommandPalette = dynamic(
   { ssr: false },
 );
 
-type SpatialNode = Extract<CanvasNode, { type: "frame" | "group" | "sticky" }>;
-type CommentNode = Extract<CanvasNode, { type: "comment" }>;
+type SpatialNode = Extract<CanvasNode, { type: "frame" | "group" }>;
 type NavNode = Extract<CanvasNode, { type: "frame" | "group" }>;
 
-const COMMENT_ZOOM_THRESHOLD = 40;
 const MOBILE_MIN_ZOOM = 0.25;
 const MOBILE_MAX_ZOOM = 2;
 
@@ -73,23 +68,24 @@ export function CanvasWorkspace({
   const spatialNodes = useMemo(
     () =>
       nodes.filter(
-        (n): n is SpatialNode =>
-          n.type === "frame" || n.type === "group" || n.type === "sticky",
+        (n): n is SpatialNode => n.type === "frame" || n.type === "group",
       ),
     [nodes],
   );
-  const commentNodesAll = useMemo(
-    () => nodes.filter((n): n is CommentNode => n.type === "comment"),
-    [nodes],
-  );
-  const commentNumbers = useMemo(() => {
-    const map = new Map<string, number>();
-    commentNodesAll.forEach((node, i) => map.set(node.id, i + 1));
-    return map;
-  }, [commentNodesAll]);
   const childrenByParent = useMemo(() => groupChildrenByParent(nodes), [nodes]);
   const layerTree = useMemo(() => buildLayerTree(nodes), [nodes]);
-  const flatFrames = useMemo(() => flattenFrames(layerTree), [layerTree]);
+
+  // The explicit, hand-authored viewing order (see content/canvas.ts) — not
+  // derived from the tree or from spatial coordinates, so it can be
+  // reordered independently of both.
+  const flatFrames = useMemo(
+    () =>
+      FRAME_ORDER.map((id) => spatialNodes.find((n) => n.id === id)).filter(
+        (n): n is Extract<SpatialNode, { type: "frame" }> =>
+          !!n && n.type === "frame",
+      ),
+    [spatialNodes],
+  );
 
   const navigateItems: NavigateItem[] = useMemo(() => {
     const byId = new Map(spatialNodes.map((n) => [n.id, n]));
@@ -115,6 +111,7 @@ export function CanvasWorkspace({
     minZoom: engineMinZoom,
     maxZoom: engineMaxZoom,
     isMobile,
+    frameOrder: FRAME_ORDER,
   });
   const {
     containerRef,
@@ -134,8 +131,11 @@ export function CanvasWorkspace({
     zoomToPercent,
   } = engine;
 
+  // Only set for a real deep link — a bare "/" visit has no targetFrame, so
+  // the intro sequence lands on the fit-all OVERVIEW instead of zooming
+  // into a specific frame (see CLAUDE.md's navigation model).
   const targetFrame = useMemo(
-    () => spatialNodes.find((n) => n.id === (initialFrameId ?? "cover")),
+    () => (initialFrameId ? spatialNodes.find((n) => n.id === initialFrameId) : undefined),
     [spatialNodes, initialFrameId],
   );
   const { phase: introPhase } = useIntroSequence({
@@ -152,8 +152,6 @@ export function CanvasWorkspace({
   const [tool, setTool] = useState<Tool>("move");
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
-  const [commentsVisible, setCommentsVisible] = useState(true);
-  const [openThreadId, setOpenThreadId] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [layersSheetOpen, setLayersSheetOpen] = useState(false);
@@ -170,10 +168,10 @@ export function CanvasWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Tool shortcuts (V/H), the comment-visibility toggle (C), the command
-  // palette (Cmd/Ctrl+K), and the shortcuts dialog (?) — separate from the
-  // engine's own keyboard handling (space-pan, escape-deselect, zoom
-  // shortcuts, arrows), which owns keys unrelated to these.
+  // Tool shortcuts (V/H), the command palette (Cmd/Ctrl+K), and the
+  // shortcuts dialog (?) — separate from the engine's own keyboard handling
+  // (space-pan/step, escape-deselect, zoom shortcuts, arrows/stepping),
+  // which owns keys unrelated to these.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -193,8 +191,6 @@ export function CanvasWorkspace({
       const key = e.key.toLowerCase();
       if (key === "v") setTool("move");
       else if (key === "h") setTool("hand");
-      else if (key === "c") setCommentsVisible((v) => !v);
-      else if (e.key === "Escape") setOpenThreadId(null);
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -259,17 +255,9 @@ export function CanvasWorkspace({
     window.open(contact.resumeUrl, "_blank", "noopener,noreferrer");
   };
 
-  const toggleComments = () => setCommentsVisible((v) => !v);
-
-  const commentNodes = useMemo(
-    () =>
-      commentsVisible && !isMobile && zoomPercent > COMMENT_ZOOM_THRESHOLD
-        ? commentNodesAll.filter(
-            (n) => !!n.parentId && visibleFrameIds.has(n.parentId),
-          )
-        : [],
-    [commentsVisible, isMobile, zoomPercent, commentNodesAll, visibleFrameIds],
-  );
+  // FOCUSED state: the current selection is a real frame in the authored
+  // order (not null, not a group) — drives the desktop frame counter.
+  const focusedIndex = selectedId ? FRAME_ORDER.indexOf(selectedId) : -1;
 
   const selectedNode = selectedId
     ? (spatialNodes.find(
@@ -306,21 +294,12 @@ export function CanvasWorkspace({
       childrenByParent={childrenByParent}
       containerRef={containerRef}
       transform={transform}
-      x={x}
-      y={y}
       scale={scale}
       visibleFrameIds={visibleFrameIds}
       lodBand={lodBand}
       selectedId={selectedId}
       hoveredId={hoveredId}
       onHoverFrame={setHoveredId}
-      commentNodes={commentNodes}
-      commentNumbers={commentNumbers}
-      openThreadId={openThreadId}
-      onToggleThread={(id) =>
-        setOpenThreadId((prev) => (prev === id ? null : id))
-      }
-      isMobile={isMobile}
     />
   );
   const semanticDocEl = (
@@ -345,8 +324,6 @@ export function CanvasWorkspace({
           onZoomToSelection={zoomToSelection}
           onZoomToPercent={zoomToPercent}
           onShare={handleShare}
-          commentsVisible={commentsVisible}
-          onToggleComments={toggleComments}
           isMobile
         />
         <div className="relative min-h-0 flex-1">
@@ -383,7 +360,6 @@ export function CanvasWorkspace({
             onZoomToFit={zoomToFit}
             onCopyEmail={handleCopyEmail}
             onOpenResume={handleOpenResume}
-            onToggleComments={toggleComments}
           />
         )}
         {shortcutsOpen && (
@@ -404,8 +380,6 @@ export function CanvasWorkspace({
         onZoomToSelection={zoomToSelection}
         onZoomToPercent={zoomToPercent}
         onShare={handleShare}
-        commentsVisible={commentsVisible}
-        onToggleComments={toggleComments}
       />
       <div className="flex min-h-0 flex-1">
         <LeftPanel
@@ -413,11 +387,17 @@ export function CanvasWorkspace({
           collapsed={leftCollapsed}
           onToggleCollapse={() => setLeftCollapsed((v) => !v)}
           selectedId={selectedId}
+          hoveredId={hoveredId}
           onSelectFrame={handleSelectFrame}
           onHoverFrame={setHoveredId}
         />
-        {canvasEl}
-        {semanticDocEl}
+        <div className="relative flex min-h-0 flex-1">
+          {canvasEl}
+          {semanticDocEl}
+          {focusedIndex !== -1 && (
+            <FrameCounter index={focusedIndex} total={FRAME_ORDER.length} />
+          )}
+        </div>
         <RightPanel selectedNode={selectedNode} project={selectedProject} />
       </div>
       {paletteOpen && (
@@ -428,7 +408,6 @@ export function CanvasWorkspace({
           onZoomToFit={zoomToFit}
           onCopyEmail={handleCopyEmail}
           onOpenResume={handleOpenResume}
-          onToggleComments={toggleComments}
         />
       )}
       {shortcutsOpen && (

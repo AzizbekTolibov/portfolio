@@ -11,15 +11,20 @@ const GROUPS: Group[] = [
     shortcuts: [
       { keys: "Tab / Shift Tab", label: "Move through frames and controls" },
       { keys: "Enter", label: "Activate the focused link or button" },
-      { keys: "↑ ↓ ← →", label: "Pan the canvas" },
+      {
+        keys: "Scroll / ↑ ↓ ← →",
+        label: "Pan (overview) or step frames (focused)",
+      },
+      { keys: "Space", label: "Advance a frame (focused)" },
       { keys: "Space + drag", label: "Pan with the pointer" },
+      { keys: "Esc", label: "Return to overview / deselect" },
     ],
   },
   {
     title: "Zoom",
     shortcuts: [
       { keys: "+ / −", label: "Zoom in / out" },
-      { keys: "Shift 1", label: "Zoom to fit" },
+      { keys: "Shift 1", label: "Zoom to fit (overview)" },
       { keys: "Shift 2", label: "Zoom to selection" },
       { keys: "Shift 0", label: "Reset to 100%" },
       { keys: "Ctrl/Cmd + Scroll", label: "Zoom toward the cursor" },
@@ -30,8 +35,6 @@ const GROUPS: Group[] = [
     shortcuts: [
       { keys: "V", label: "Move tool" },
       { keys: "H", label: "Hand tool" },
-      { keys: "C", label: "Toggle comment pins" },
-      { keys: "Esc", label: "Deselect / close" },
     ],
   },
   {

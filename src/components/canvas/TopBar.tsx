@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
   ChevronRightIcon,
-  CommentToolIcon,
   FrameToolIcon,
   HandToolIcon,
   MoveToolIcon,
@@ -19,18 +18,10 @@ type TopBarProps = {
   onZoomToSelection: () => void;
   onZoomToPercent: (percent: number) => void;
   onShare: () => void;
-  commentsVisible: boolean;
-  onToggleComments: () => void;
   isMobile?: boolean;
 };
 
 const ZOOM_PRESETS = [50, 100, 200];
-
-const collaborators = [
-  { initials: "AT", color: "#0D99FF" },
-  { initials: "RK", color: "#9747FF" },
-  { initials: "MS", color: "#E07A5F" },
-];
 
 function ToolButton({
   label,
@@ -150,8 +141,6 @@ export function TopBar({
   onZoomToSelection,
   onZoomToPercent,
   onShare,
-  commentsVisible,
-  onToggleComments,
   isMobile = false,
 }: TopBarProps) {
   return (
@@ -207,41 +196,10 @@ export function TopBar({
           >
             <FrameToolIcon className="h-4 w-4" />
           </ToolButton>
-          <ToolButton
-            label={commentsVisible ? "Hide comments" : "Show comments"}
-            shortcut="C"
-            active={commentsVisible}
-            onClick={onToggleComments}
-          >
-            <CommentToolIcon className="h-4 w-4" />
-          </ToolButton>
         </div>
       )}
 
       <div className="flex flex-1 items-center justify-end gap-3">
-        {!isMobile && (
-          <div className="flex items-center -space-x-1.5" aria-hidden="true">
-            {collaborators.map((c) => (
-              <div
-                key={c.initials}
-                className="border-panel flex h-6 w-6 items-center justify-center rounded-full border-2 font-mono text-[9px] font-bold"
-                style={{ backgroundColor: c.color, color: "#000" }}
-              >
-                {c.initials}
-              </div>
-            ))}
-          </div>
-        )}
-        {isMobile && (
-          <ToolButton
-            label={commentsVisible ? "Hide comments" : "Show comments"}
-            shortcut="C"
-            active={commentsVisible}
-            onClick={onToggleComments}
-          >
-            <CommentToolIcon className="h-4 w-4" />
-          </ToolButton>
-        )}
         <button
           type="button"
           onClick={onShare}

@@ -26,8 +26,6 @@
      and reused as the site-wide focus ring color (see :focus-visible
      below). Not part of the artboard-interior editorial palette. */
   --color-selection: #0d99ff;
-  /* Figma comment purple — comment pins / annotations only. */
-  --color-comment: #9747ff;
 
   /* Figma chrome tokens — the top bar / side panels' own surfaces, distinct
      from the dark canvas backdrop (off-black) and from the light

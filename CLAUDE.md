@@ -35,7 +35,7 @@ What replaces them is always **spatial**: content is frames in 2D space;
 "navigation" is pan / zoom / fly-to-frame; "sections" are regions of the
 canvas. A project isn't a card in a grid — it's a frame you pan to. The bio
 isn't an About page — it's a frame. Contact isn't a form — it's a frame with
-an email on it (a business card / a comment pin), never a `<form>`.
+an email on it (a business card), never a `<form>`.
 
 The one carve-out: **accessibility and crawlability are not "portfolio
 features"** — they are baseline requirements, and they are delivered through
@@ -53,8 +53,10 @@ These are hard requirements, not goals. A change that breaks one is wrong.
    layout thrash.
 2. **Keyboard navigable.** Everything reachable by pointer is reachable by
    keyboard. Tab moves through frames/links in a logical order; focusing a
-   frame flies the viewport to it; there are explicit pan/zoom keys and a
-   "reset view" / "next frame" affordance.
+   frame flies the viewport to it; explicit pan/zoom keys exist, and in
+   FOCUSED state (see Navigation model below) arrows/Space step to the
+   next/previous frame — the "next frame" affordance is real, not just a
+   pan key.
 3. **Screen-reader readable.** A blind user gets a clean, ordered document
    with landmarks, correct heading order, and alt text — via the semantic
    layer. The canvas's absolute 2D positioning never leaks into reading
@@ -109,6 +111,49 @@ scale }}`). Pointer/wheel handlers write to the motion values directly —
 - If frame count grows, **virtualize** off-screen frames (skip rendering
   frames far outside the viewport) rather than letting the DOM balloon.
 
+### Navigation model — OVERVIEW and FOCUSED
+
+Free-roam panning (drag around an empty canvas hunting for content) is not
+the primary way to navigate — it's an escape hatch, never a requirement.
+The canvas has exactly two states:
+
+- **OVERVIEW** — the default, and where the file-open sequence lands with
+  no deep link: zoom-to-fit **every** frame, so the whole file is visible
+  at once. Frame labels counter-scale (the `--canvas-scale` custom
+  property, applied as `scale(calc(1 / var(--canvas-scale)))`) so they stay
+  a constant screen size regardless of zoom. Hovering a frame highlights it
+  **and** its row in the layers panel — the two are driven by one
+  `hoveredId`, not independent hover states.
+- **FOCUSED** — clicking any frame (canvas or layers-panel row) flies the
+  camera to fill ~80% of the viewport with it. From here, scrolling, arrow
+  keys, or a Space tap step to the next/previous frame in the **authored
+  order** — `FRAME_ORDER` in `src/content/canvas.ts`, a hand-written
+  `string[]`, deliberately **not derived from x/y coordinates** so the
+  viewing sequence can be edited independently of spatial layout. One
+  gesture moves exactly one frame (debounced against trackpad-swipe/key-
+  repeat bursts). Escape, or clicking empty canvas, returns to OVERVIEW.
+
+Camera travel between frames — entering FOCUSED, stepping, returning to
+OVERVIEW — animates translate + scale together (~800ms ease-in-out) so the
+space between frames is visible; it never cross-fades or jumps. This is
+gated by a single flag, `flyBetweenFrames` in `src/lib/canvas/config.ts`,
+so the animated version can be A/B'd against instant jumps in one line.
+`prefers-reduced-motion` always wins over that flag regardless of its
+value. The hand tool (H) and Space+drag panning still work in either
+state — they're never required, only available.
+
+### The pointer cursor is real CSS, not a canvas child
+
+The cursor swaps by tool/state — arrow (move tool default), open hand
+(hand tool idle), closed/grabbing hand (actively panning), a zoom glyph
+(Cmd/Ctrl held) — via custom SVGs in `public/cursors/` applied as
+`cursor: url(...) hotspotX hotspotY, fallback` **on the viewport element
+itself**. This is the only correct way to do it: a real CSS cursor is
+screen-space by definition and can never inherit the world layer's
+`scale()`. A DOM element positioned inside the transformed canvas layer
+(the mistake to avoid) grows and shrinks with zoom, which is exactly what
+Figma's own cursor never does.
+
 ### Frames as nodes
 
 A frame is an absolutely-positioned node at `(x, y)` sized `(w, h)` in canvas
@@ -121,8 +166,8 @@ space, with a **frame label** rendered just above its top-left (Figma-style,
 - **Case-study frames** — a project's full case study, a large frame (or a
   small cluster of frames) you zoom into (replaces the `/work/[slug]` page)
 - **About frame** — the bio (replaces the About page)
-- **Contact frame** — email + socials on an artboard / comment pin (replaces
-  the contact form)
+- **Contact frame** — email + socials on an artboard (replaces the contact
+  form)
 
 ### Spatial composition is data
 
@@ -165,15 +210,13 @@ The chrome is Figma dark-mode UI, to the pixel. Tokens (planned, in
 | `--color-panel`     | `#1E1E1E` | Toolbar / panel chrome                       |
 | `--color-surface`   | `#2C2C2C` | Secondary surfaces, canvas backdrop          |
 | `--color-selection` | `#0D99FF` | Selection outlines, focus rings (Figma blue) |
-| `--color-comment`   | `#9747FF` | Comment pins / annotations (Figma purple)    |
 
 - **UI text is 11px** — Figma's chrome size. Frame labels, toolbar,
   coordinates, zoom %: all 11px, neutral UI sans, a dim gray on dark.
 - **Frame labels sit above frames** — the frame's name in 11px just above its
   top-left corner, exactly like Figma renders artboard names.
-- **Selection = blue `#0D99FF`**; **comments/annotations = purple `#9747FF`**.
-  Use the blue for focus/selection and the purple for any pinned annotation
-  or callout — do not invent other accent colors.
+- **Selection = blue `#0D99FF`.** Use it for focus rings and selection
+  outlines — do not invent other accent colors.
 - **Artboard interiors keep the editorial palette.** The portfolio content
   inside frames sits on light "artboards": the previous off-white (`#F4F2ED`)
   and neutral gray scale survive **as artboard-interior tokens**, floating on
@@ -213,7 +256,7 @@ src/
     icon.tsx, opengraph-image.tsx, twitter-image.tsx   (kept; restyle OG)
     sitemap.ts, robots.ts   (rewritten for the new URL shape)
   components/
-    canvas/                 Canvas (viewport), Frame, FrameLabel, CommentPin…
+    canvas/                 Canvas (viewport), Frame, FrameLabel…
     frames/                 NameplateFrame, ProjectFrame, CaseStudyFrame,
                             AboutFrame, ContactFrame (projections of content)
     semantic/               the parallel semantic document

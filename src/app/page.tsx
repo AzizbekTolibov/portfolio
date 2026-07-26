@@ -45,12 +45,15 @@ export async function generateMetadata({
 
 export default async function CanvasPage({ searchParams }: CanvasPageProps) {
   const { node } = await searchParams;
-  const initialFrameId = node ?? "cover";
 
+  // No fallback to "cover" here — a bare "/" visit has no initialFrameId at
+  // all, so the engine/intro sequence land on the fit-all OVERVIEW (see
+  // CLAUDE.md's navigation model). A real deep link still lands FOCUSED on
+  // its named frame.
   return (
     <CanvasWorkspace
       nodes={canvasNodes}
-      initialFrameId={initialFrameId}
+      initialFrameId={node}
       initialSelectedId={node}
     />
   );

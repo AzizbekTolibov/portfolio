@@ -61,22 +61,6 @@ export function FrameToolIcon({ className }: IconProps) {
   );
 }
 
-export function CommentToolIcon({ className }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.3"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M2 3.5h12v7H8.5L5.5 13v-2.5H2v-7Z" />
-    </svg>
-  );
-}
-
 export function ChevronRightIcon({ className }: IconProps) {
   return (
     <svg

@@ -41,21 +41,3 @@ export function buildLayerTree(nodes: CanvasNode[]): LayerTreeNode[] {
 
   return navigable.filter((n) => !n.parentId).map(build);
 }
-
-/** Every real frame (not group) in the same depth-first order the
- * semantic document reads them — the sequence the mobile Prev/Next bar
- * steps through, so "Frame N of X" always matches what a screen reader
- * or the layer tree would call frame N too. */
-export function flattenFrames(
-  tree: LayerTreeNode[],
-): Extract<NavigableNode, { type: "frame" }>[] {
-  const out: Extract<NavigableNode, { type: "frame" }>[] = [];
-  function walk(nodes: LayerTreeNode[]) {
-    for (const entry of nodes) {
-      if (entry.node.type === "frame") out.push(entry.node);
-      walk(entry.children);
-    }
-  }
-  walk(tree);
-  return out;
-}
