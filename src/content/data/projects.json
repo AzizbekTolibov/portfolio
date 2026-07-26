@@ -226,5 +226,18 @@
         "alt": "Kindred — photo 4"
       }
     ]
+  },
+  {
+    "slug": "untitled-project",
+    "title": "[UNTITLED PROJECT]",
+    "year": "[YEAR]",
+    "description": "[DESCRIPTION — TO WRITE]",
+    "cover": {
+      "src": "/projects/new-project-placeholder.svg",
+      "width": 1200,
+      "height": 1500,
+      "alt": "[ALT TEXT — TO WRITE]"
+    },
+    "images": []
   }
 ]
