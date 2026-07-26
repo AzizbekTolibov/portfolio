@@ -168,6 +168,26 @@ export function CanvasWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Selection always drives the camera — this is the deep-link entry
+  // point's version of that rule. The intro sequence deliberately skips
+  // OVERVIEW and leaves the camera parked at its "way out" prep position
+  // for a deep link (see use-intro-sequence.ts); once it signals "done",
+  // this fires the exact same zoomToFrame every other selection uses
+  // (click, layers panel, command palette, prev/next), so there's one
+  // code path responsible for "selected frame is what the camera shows,"
+  // not two independent computations that can desync.
+  const deepLinkZoomedRef = useRef(false);
+  useEffect(() => {
+    if (
+      initialSelectedId &&
+      introPhase === "done" &&
+      !deepLinkZoomedRef.current
+    ) {
+      deepLinkZoomedRef.current = true;
+      zoomToFrame(initialSelectedId);
+    }
+  }, [introPhase, initialSelectedId, zoomToFrame]);
+
   // Tool shortcuts (V/H), the command palette (Cmd/Ctrl+K), and the
   // shortcuts dialog (?) — separate from the engine's own keyboard handling
   // (space-pan/step, escape-deselect, zoom shortcuts, arrows/stepping),
@@ -251,9 +271,11 @@ export function CanvasWorkspace({
     navigator.clipboard.writeText(contact.email).catch(() => {});
   };
 
-  const handleOpenResume = () => {
-    window.open(contact.resumeUrl, "_blank", "noopener,noreferrer");
-  };
+  const handleOpenResume = contact.resumeUrl
+    ? () => {
+        window.open(contact.resumeUrl, "_blank", "noopener,noreferrer");
+      }
+    : undefined;
 
   // FOCUSED state: the current selection is a real frame in the authored
   // order (not null, not a group) — drives the desktop frame counter.
@@ -295,6 +317,7 @@ export function CanvasWorkspace({
       containerRef={containerRef}
       transform={transform}
       scale={scale}
+      zoomPercent={zoomPercent}
       visibleFrameIds={visibleFrameIds}
       lodBand={lodBand}
       selectedId={selectedId}

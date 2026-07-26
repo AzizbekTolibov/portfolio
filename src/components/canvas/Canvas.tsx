@@ -13,6 +13,10 @@ const GRID_SPACING = 24;
 
 type SpatialNode = Extract<CanvasNode, { type: "frame" | "group" }>;
 
+/** Below this, individual frame labels hide — only group/project labels
+ * stay, decluttering OVERVIEW. */
+const FRAME_LABEL_MIN_ZOOM_PERCENT = 40;
+
 type CanvasProps = {
   spatialNodes: SpatialNode[];
   childrenByParent: Map<string, CanvasNode[]>;
@@ -21,6 +25,7 @@ type CanvasProps = {
   scale: MotionValue<number>;
   visibleFrameIds: Set<string>;
   lodBand: LodBand;
+  zoomPercent: number;
   selectedId: string | null;
   hoveredId: string | null;
   onHoverFrame: (id: string | null) => void;
@@ -42,10 +47,12 @@ export function Canvas({
   scale,
   visibleFrameIds,
   lodBand,
+  zoomPercent,
   selectedId,
   hoveredId,
   onHoverFrame,
 }: CanvasProps) {
+  const showFrameLabels = zoomPercent >= FRAME_LABEL_MIN_ZOOM_PERCENT;
   const gridBounds = useMemo(() => {
     const box = computeBoundingBox(spatialNodes);
     return {
@@ -106,6 +113,7 @@ export function Canvas({
               node={node}
               childNodes={childrenByParent.get(node.id) ?? []}
               lodBand={lodBand}
+              showLabel={showFrameLabels}
               selected={selectedId === node.id}
               hovered={hoveredId === node.id}
               onHoverChange={(h) => onHoverFrame(h ? node.id : null)}

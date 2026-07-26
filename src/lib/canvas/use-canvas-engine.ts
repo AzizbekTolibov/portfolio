@@ -22,7 +22,10 @@ import type { CanvasRect, LodBand } from "./types";
 
 export const MIN_ZOOM = 0.05;
 export const MAX_ZOOM = 4;
-export const FIT_RATIO = 0.8;
+// 0.9 = ~5% padding on each side (frame/overview fills ~90% of the
+// available area) — both OVERVIEW's zoom-to-fit-all and FOCUSED's
+// zoom-to-frame share this one ratio.
+export const FIT_RATIO = 0.9;
 /** Screen-space px; converted to canvas units by dividing by scale, so the
  * effective margin shrinks (in canvas units) as you zoom in. */
 const VIRTUALIZATION_MARGIN_PX = 300;

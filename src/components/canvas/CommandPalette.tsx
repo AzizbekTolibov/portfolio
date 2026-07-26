@@ -26,7 +26,9 @@ type CommandPaletteProps = {
   onNavigate: (id: string) => void;
   onZoomToFit: () => void;
   onCopyEmail: () => void;
-  onOpenResume: () => void;
+  /** Undefined when there's no résumé file to open — the action is left
+   * out of the list entirely rather than linking to nothing. */
+  onOpenResume?: () => void;
 };
 
 /** Subsequence fuzzy match — every query character must appear in order in
@@ -90,12 +92,16 @@ export function CommandPalette({
         label: "Copy email",
         run: onCopyEmail,
       },
-      {
-        kind: "action",
-        id: "open-resume",
-        label: "Open résumé",
-        run: onOpenResume,
-      },
+      ...(onOpenResume
+        ? [
+            {
+              kind: "action" as const,
+              id: "open-resume",
+              label: "Open résumé",
+              run: onOpenResume,
+            },
+          ]
+        : []),
     ],
     [onZoomToFit, onCopyEmail, onOpenResume],
   );

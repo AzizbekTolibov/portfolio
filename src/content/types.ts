@@ -88,8 +88,10 @@ export type AboutContent = {
 export type ContactContent = {
   email: string;
   socials: { label: string; url: string }[];
-  /** Placeholder path — add the real file at public/resume.pdf. */
-  resumeUrl: string;
+  /** Only set once a real file exists at public/resume.pdf — every
+   * consumer must treat this as optional and hide the affordance
+   * entirely when it isn't set, never link to a missing file. */
+  resumeUrl?: string;
 };
 
 export type SiteContent = {

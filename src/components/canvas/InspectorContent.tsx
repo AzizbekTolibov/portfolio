@@ -64,7 +64,9 @@ function FileInfoPanel() {
         {contact.socials.map((s) => (
           <LinkRow key={s.label} label={s.label} href={s.url} />
         ))}
-        <LinkRow label="Résumé (PDF)" href={contact.resumeUrl} />
+        {contact.resumeUrl && (
+          <LinkRow label="Résumé (PDF)" href={contact.resumeUrl} />
+        )}
       </div>
     </div>
   );

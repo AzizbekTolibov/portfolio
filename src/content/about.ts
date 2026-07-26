@@ -80,11 +80,11 @@ export const about: AboutContent = {
 };
 
 export const contact: ContactContent = {
-  email: "hello@example.com",
-  socials: [
-    { label: "LinkedIn", url: "https://linkedin.com" },
-    { label: "Dribbble", url: "https://dribbble.com" },
-    { label: "Instagram", url: "https://instagram.com" },
-  ],
-  resumeUrl: "/resume.pdf",
+  email: "diyorbekismatullayev2004@gmail.com",
+  // LinkedIn/Dribbble/Instagram removed — real profile URLs not supplied
+  // yet, and a generic homepage link is worse than no link. Add real ones
+  // here when available.
+  socials: [],
+  // No file at public/resume.pdf yet — omitted rather than linking to a
+  // 404. Add resumeUrl back once the real PDF exists.
 };

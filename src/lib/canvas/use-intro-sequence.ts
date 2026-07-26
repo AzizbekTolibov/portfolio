@@ -9,9 +9,8 @@ import type { CanvasRect } from "./types";
 
 const LOADING_MS = 650;
 const ZOOM_TO_FIT_MS = 1000;
-const ZOOM_TO_COVER_MS = 900;
 const WAY_OUT_RATIO = 0.28;
-const FIT_RATIO = 0.8;
+const FIT_RATIO = 0.9;
 
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -20,13 +19,25 @@ export type IntroPhase = "loading" | "animating" | "done";
 
 /**
  * Figma's file-loading sequence, replacing a conventional intro: a loading
- * screen, then a fade-in already zoomed way out, a zoom-to-fit, and — only
- * when a deep link named a specific frame — a second gentle zoom into it.
- * With no deep link, the sequence ends at the zoom-to-fit itself: OVERVIEW
- * (every frame visible) is where the file lands by default, per CLAUDE.md's
- * navigation model. Skippable at any point, and skipped entirely under
- * prefers-reduced-motion (straight to the final target, which the engine's
- * own mount effect already does via initialFrameId).
+ * screen, then a fade-in already zoomed way out. With no deep link, this
+ * hook also does the reveal itself — an animated zoom-to-fit, landing on
+ * OVERVIEW (every frame visible), per CLAUDE.md's navigation model.
+ *
+ * With a deep link, this hook does *not* move the camera at all beyond the
+ * invisible "way out" prep — it deliberately skips OVERVIEW entirely and
+ * leaves the actual flight to the frame to the caller's own `zoomToFrame`
+ * once `phase` reaches "done" (see CanvasWorkspace). That's the fix for a
+ * real bug: selection and camera used to be driven by two independent
+ * computations (this hook's own fit-to-target-frame math, racing the
+ * engine's mount effect) that could desync. Now there is exactly one code
+ * path that flies the camera to a frame, used by every entry point —
+ * clicking, the layers panel, the command palette, prev/next, and a deep
+ * link on mount alike.
+ *
+ * Skippable at any point, and skipped entirely under prefers-reduced-motion
+ * (the engine's own mount effect sets the initial transform synchronously
+ * in that case; CanvasWorkspace's zoomToFrame call still fires for a deep
+ * link once phase is "done").
  */
 export function useIntroSequence({
   containerRef,
@@ -111,6 +122,16 @@ export function useIntroSequence({
     async function run() {
       await sleep(LOADING_MS);
       if (cancelledRef.current) return;
+
+      // Deep link: skip OVERVIEW entirely. Leave the camera at the "way
+      // out" prep position and hand off — CanvasWorkspace's own
+      // zoomToFrame call (fired when phase reaches "done") does the actual
+      // flight, the same function every other selection uses.
+      if (targetFrame) {
+        setPhase("done");
+        return;
+      }
+
       setPhase("animating");
 
       // Re-measure rather than reuse the pre-sleep `viewport` — panels can
@@ -144,37 +165,6 @@ export function useIntroSequence({
       activeAnimationsRef.current = zoomToFitAnims;
       await Promise.all(zoomToFitAnims);
       if (cancelledRef.current) return;
-
-      // No deep link: OVERVIEW (the fit-all view just reached) is the
-      // landing state — done. A deep link gets one more gentle zoom into
-      // its specific frame (FOCUSED).
-      if (targetFrame) {
-        const finalTarget = computeFitTransform(
-          targetFrame,
-          freshViewport.width,
-          freshViewport.height,
-          FIT_RATIO,
-          minZoom,
-          maxZoom,
-        );
-        const zoomToFrameAnims = [
-          animate(x, finalTarget.x, {
-            duration: ZOOM_TO_COVER_MS / 1000,
-            ease: easings.out,
-          }),
-          animate(y, finalTarget.y, {
-            duration: ZOOM_TO_COVER_MS / 1000,
-            ease: easings.out,
-          }),
-          animate(scale, finalTarget.scale, {
-            duration: ZOOM_TO_COVER_MS / 1000,
-            ease: easings.out,
-          }),
-        ];
-        activeAnimationsRef.current = zoomToFrameAnims;
-        await Promise.all(zoomToFrameAnims);
-        if (cancelledRef.current) return;
-      }
       setPhase("done");
     }
 

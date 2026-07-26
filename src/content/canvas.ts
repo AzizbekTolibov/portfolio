@@ -41,7 +41,16 @@ type BaseNode = {
 export type CanvasNode =
   | (BaseNode & {
       type: "frame";
-      content?: { projectSlug?: string; kind?: FrameKind };
+      content?: {
+        projectSlug?: string;
+        kind?: FrameKind;
+        /** Shown as this frame's background at the low-detail ("flat")
+         * LOD, so each project cluster reads as a distinct block at
+         * OVERVIEW zoom instead of an identical blank rectangle. Full
+         * saturation on the project's Cover frame, a muted tint on its
+         * supporting frames. */
+        accentColor?: string;
+      };
     })
   | (BaseNode & { type: "group"; content?: { projectSlug?: string } })
   | (BaseNode & {
@@ -90,14 +99,20 @@ function sectionBody(project: Project, sectionId: CaseStudySectionId): string {
 }
 
 // ---- Site cover — the nameplate, replaces a conventional hero ----
+// Deliberately NOT halved like everything else below — at 1440x900 it's
+// noticeably larger than a project's own 720x450 cover sub-frame, so it's
+// where the eye lands first in OVERVIEW, per CLAUDE.md's navigation model.
+
+const COVER_X = 1550;
+const COVER_Y = 0;
 
 const siteCover: CanvasNode[] = [
   {
     id: "cover",
     type: "frame",
     name: "Cover",
-    x: 0,
-    y: 0,
+    x: COVER_X,
+    y: COVER_Y,
     width: 1440,
     height: 900,
     content: { kind: "site-cover" },
@@ -107,8 +122,8 @@ const siteCover: CanvasNode[] = [
     type: "text",
     name: "Name",
     parentId: "cover",
-    x: 80,
-    y: 280,
+    x: COVER_X + 80,
+    y: COVER_Y + 280,
     width: 1280,
     height: 140,
     content: { text: site.name, variant: "display" },
@@ -118,8 +133,8 @@ const siteCover: CanvasNode[] = [
     type: "text",
     name: "Role",
     parentId: "cover",
-    x: 80,
-    y: 440,
+    x: COVER_X + 80,
+    y: COVER_Y + 440,
     width: 1280,
     height: 60,
     content: { text: site.role, variant: "heading" },
@@ -129,8 +144,8 @@ const siteCover: CanvasNode[] = [
     type: "text",
     name: "Location",
     parentId: "cover",
-    x: 80,
-    y: 520,
+    x: COVER_X + 80,
+    y: COVER_Y + 520,
     width: 1280,
     height: 40,
     content: { text: site.location.display, variant: "caption" },
@@ -140,28 +155,41 @@ const siteCover: CanvasNode[] = [
     type: "text",
     name: "Positioning statement",
     parentId: "cover",
-    x: 80,
-    y: 620,
+    x: COVER_X + 80,
+    y: COVER_Y + 620,
     width: 1280,
     height: 80,
     content: { text: home.heroHeadline, variant: "body" },
   },
 ];
 
-// ---- Project clusters — one per featured project, in a 2x2 grid ----
-// (see CLAUDE.md's navigation model: a squarer ~16:9 bounding box makes the
-// OVERVIEW zoom-to-fit actually readable, instead of one long horizontal
-// strip that shrinks everything to microscopic size.)
+// ---- Project clusters — one per featured project, in a tight 2x2 grid ----
+// Half the linear size of every earlier draft of this layout: at full size,
+// four 4000x2600 clusters made the OVERVIEW zoom-to-fit land at 5-9%, with
+// content filling barely a third of the screen. Halving every internal
+// measurement (frames, gutters, image/text placement) preserves each
+// cluster's own composition exactly while shrinking the total canvas area
+// enough that zoom-to-fit lands in a legible ~15-25% range instead.
 
-const CLUSTER_WIDTH = 4000;
-const CLUSTER_HEIGHT = 2600;
+const CLUSTER_WIDTH = 2000;
+const CLUSTER_HEIGHT = 1300;
+const CLUSTER_GRID_GUTTER = 150;
 const CLUSTER_POSITIONS = [
-  { x: 0, y: 1400 },
-  { x: 5000, y: 1400 },
-  { x: 0, y: 4400 },
-  { x: 5000, y: 4400 },
+  { x: COVER_X, y: COVER_Y + 900 + CLUSTER_GRID_GUTTER },
+  {
+    x: COVER_X + CLUSTER_WIDTH + CLUSTER_GRID_GUTTER,
+    y: COVER_Y + 900 + CLUSTER_GRID_GUTTER,
+  },
+  {
+    x: COVER_X,
+    y: COVER_Y + 900 + CLUSTER_GRID_GUTTER + CLUSTER_HEIGHT + CLUSTER_GRID_GUTTER,
+  },
+  {
+    x: COVER_X + CLUSTER_WIDTH + CLUSTER_GRID_GUTTER,
+    y: COVER_Y + 900 + CLUSTER_GRID_GUTTER + CLUSTER_HEIGHT + CLUSTER_GRID_GUTTER,
+  },
 ];
-const GUTTER = 200;
+const GUTTER = 100;
 
 function projectCluster(project: Project, index: number): CanvasNode[] {
   const gx = CLUSTER_POSITIONS[index].x;
@@ -174,19 +202,22 @@ function projectCluster(project: Project, index: number): CanvasNode[] {
   const wireframesId = `${project.slug}-wireframes`;
   const finalUiId = `${project.slug}-final-ui`;
   const baseColor = PROJECT_COLORS[project.slug] ?? "#888888";
+  // Supporting frames get a muted tint of the same hue — full saturation
+  // is reserved for the Cover, which is what should read first at a glance.
+  const mutedColor = shade(baseColor, 70);
 
   // Cover + Research share the top row; User Flow / Wireframes / Final UI
-  // form the row below, all separated by 200px gutters.
-  const coverRect = { x: gx, y: gy, width: 1440, height: 900 };
-  const researchRect = { x: gx + 1640, y: gy, width: 1440, height: 900 };
-  const userFlowRect = { x: gx, y: gy + 1100, width: 1200, height: 1300 };
+  // form the row below, all separated by 100px gutters.
+  const coverRect = { x: gx, y: gy, width: 720, height: 450 };
+  const researchRect = { x: gx + 820, y: gy, width: 720, height: 450 };
+  const userFlowRect = { x: gx, y: gy + 550, width: 600, height: 650 };
   const wireframesRect = {
-    x: gx + 1400,
-    y: gy + 1100,
-    width: 1200,
-    height: 1300,
+    x: gx + 700,
+    y: gy + 550,
+    width: 600,
+    height: 650,
   };
-  const finalUiRect = { x: gx + 2800, y: gy + 1100, width: 1200, height: 1300 };
+  const finalUiRect = { x: gx + 1400, y: gy + 550, width: 600, height: 650 };
 
   return [
     {
@@ -207,7 +238,11 @@ function projectCluster(project: Project, index: number): CanvasNode[] {
       name: "Cover",
       parentId: groupId,
       ...coverRect,
-      content: { projectSlug: project.slug, kind: "project-cover" },
+      content: {
+        projectSlug: project.slug,
+        kind: "project-cover",
+        accentColor: baseColor,
+      },
     },
     {
       id: `${coverId}-image`,
@@ -217,7 +252,7 @@ function projectCluster(project: Project, index: number): CanvasNode[] {
       x: coverRect.x,
       y: coverRect.y,
       width: coverRect.width,
-      height: 720,
+      height: 360,
       content: {
         src: `/canvas/${project.slug}-cover.svg`,
         alt: `${project.title} cover`,
@@ -230,9 +265,9 @@ function projectCluster(project: Project, index: number): CanvasNode[] {
       name: "Title",
       parentId: coverId,
       x: coverRect.x + GUTTER / 2,
-      y: coverRect.y + 720 + 30,
+      y: coverRect.y + 360 + 15,
       width: coverRect.width - GUTTER,
-      height: 150,
+      height: 75,
       content: { text: project.title, variant: "heading" },
     },
 
@@ -243,7 +278,11 @@ function projectCluster(project: Project, index: number): CanvasNode[] {
       name: "Research",
       parentId: groupId,
       ...researchRect,
-      content: { projectSlug: project.slug, kind: "research" },
+      content: {
+        projectSlug: project.slug,
+        kind: "research",
+        accentColor: mutedColor,
+      },
     },
     {
       id: `${researchId}-image`,
@@ -253,7 +292,7 @@ function projectCluster(project: Project, index: number): CanvasNode[] {
       x: researchRect.x,
       y: researchRect.y,
       width: researchRect.width,
-      height: 620,
+      height: 310,
       content: {
         src: `/canvas/${project.slug}-research.svg`,
         alt: `${project.title} research artifacts`,
@@ -266,9 +305,9 @@ function projectCluster(project: Project, index: number): CanvasNode[] {
       name: "Research notes",
       parentId: researchId,
       x: researchRect.x + GUTTER / 2,
-      y: researchRect.y + 620 + 20,
+      y: researchRect.y + 310 + 10,
       width: researchRect.width - GUTTER,
-      height: 240,
+      height: 120,
       content: { text: sectionBody(project, "research"), variant: "body" },
     },
 
@@ -279,7 +318,11 @@ function projectCluster(project: Project, index: number): CanvasNode[] {
       name: "User Flow",
       parentId: groupId,
       ...userFlowRect,
-      content: { projectSlug: project.slug, kind: "user-flow" },
+      content: {
+        projectSlug: project.slug,
+        kind: "user-flow",
+        accentColor: mutedColor,
+      },
     },
     {
       id: `${userFlowId}-image`,
@@ -289,7 +332,7 @@ function projectCluster(project: Project, index: number): CanvasNode[] {
       x: userFlowRect.x,
       y: userFlowRect.y,
       width: userFlowRect.width,
-      height: 900,
+      height: 450,
       content: {
         src: `/canvas/${project.slug}-user-flow.svg`,
         alt: `${project.title} user flow`,
@@ -302,9 +345,9 @@ function projectCluster(project: Project, index: number): CanvasNode[] {
       name: "Process notes",
       parentId: userFlowId,
       x: userFlowRect.x + GUTTER / 2,
-      y: userFlowRect.y + 900 + 20,
+      y: userFlowRect.y + 450 + 10,
       width: userFlowRect.width - GUTTER,
-      height: 360,
+      height: 180,
       content: { text: sectionBody(project, "process"), variant: "body" },
     },
 
@@ -315,7 +358,11 @@ function projectCluster(project: Project, index: number): CanvasNode[] {
       name: "Wireframes",
       parentId: groupId,
       ...wireframesRect,
-      content: { projectSlug: project.slug, kind: "wireframes" },
+      content: {
+        projectSlug: project.slug,
+        kind: "wireframes",
+        accentColor: mutedColor,
+      },
     },
     {
       id: `${wireframesId}-image`,
@@ -340,7 +387,11 @@ function projectCluster(project: Project, index: number): CanvasNode[] {
       name: "Final UI",
       parentId: groupId,
       ...finalUiRect,
-      content: { projectSlug: project.slug, kind: "final-ui" },
+      content: {
+        projectSlug: project.slug,
+        kind: "final-ui",
+        accentColor: mutedColor,
+      },
     },
     {
       id: `${finalUiId}-image`,
@@ -350,7 +401,7 @@ function projectCluster(project: Project, index: number): CanvasNode[] {
       x: finalUiRect.x,
       y: finalUiRect.y,
       width: finalUiRect.width,
-      height: 900,
+      height: 450,
       content: {
         src: `/canvas/${project.slug}-final-ui.svg`,
         alt: `${project.title} final UI`,
@@ -363,9 +414,9 @@ function projectCluster(project: Project, index: number): CanvasNode[] {
       name: "Solution notes",
       parentId: finalUiId,
       x: finalUiRect.x + GUTTER / 2,
-      y: finalUiRect.y + 900 + 20,
+      y: finalUiRect.y + 450 + 10,
       width: finalUiRect.width - GUTTER,
-      height: 360,
+      height: 180,
       content: { text: sectionBody(project, "solution"), variant: "body" },
     },
   ];
@@ -375,10 +426,13 @@ const workClusters = featuredProjects.flatMap((project, i) =>
   projectCluster(project, i),
 );
 
-// ---- About cluster ----
+// ---- About cluster — halved like the project clusters (see above), and
+// positioned as a column with Contact directly below it, instead of
+// leaving Contact orphaned on the far side of the canvas. ----
 
-const ABOUT_X = -3200;
+const ABOUT_X = 0;
 const ABOUT_Y = 0;
+const COLUMN_WIDTH = 1400;
 
 const aboutCluster: CanvasNode[] = [
   {
@@ -387,8 +441,8 @@ const aboutCluster: CanvasNode[] = [
     name: "About",
     x: ABOUT_X,
     y: ABOUT_Y,
-    width: 2800,
-    height: 1400,
+    width: COLUMN_WIDTH,
+    height: 700,
   },
   {
     id: "about-portrait",
@@ -397,8 +451,8 @@ const aboutCluster: CanvasNode[] = [
     parentId: "about-group",
     x: ABOUT_X,
     y: ABOUT_Y,
-    width: 900,
-    height: 1400,
+    width: 450,
+    height: 700,
     content: { kind: "about-portrait" },
   },
   {
@@ -408,8 +462,8 @@ const aboutCluster: CanvasNode[] = [
     parentId: "about-portrait",
     x: ABOUT_X,
     y: ABOUT_Y,
-    width: 900,
-    height: 1400,
+    width: 450,
+    height: 700,
     content: {
       src: "/canvas/about-portrait.svg",
       alt: `${about.name} portrait`,
@@ -421,10 +475,10 @@ const aboutCluster: CanvasNode[] = [
     type: "frame",
     name: "Bio",
     parentId: "about-group",
-    x: ABOUT_X + 1100,
+    x: ABOUT_X + 550,
     y: ABOUT_Y,
-    width: 1700,
-    height: 600,
+    width: 850,
+    height: 300,
     content: { kind: "about-bio" },
   },
   {
@@ -432,10 +486,10 @@ const aboutCluster: CanvasNode[] = [
     type: "text",
     name: "Bio text",
     parentId: "about-bio",
-    x: ABOUT_X + 1160,
-    y: ABOUT_Y + 60,
-    width: 1580,
-    height: 480,
+    x: ABOUT_X + 580,
+    y: ABOUT_Y + 30,
+    width: 790,
+    height: 240,
     content: {
       text: about.bioMedium,
       variant: "body",
@@ -447,10 +501,10 @@ const aboutCluster: CanvasNode[] = [
     type: "frame",
     name: "Tools & Skills",
     parentId: "about-group",
-    x: ABOUT_X + 1100,
-    y: ABOUT_Y + 800,
-    width: 1700,
-    height: 600,
+    x: ABOUT_X + 550,
+    y: ABOUT_Y + 400,
+    width: 850,
+    height: 300,
     content: { kind: "about-skills" },
   },
   {
@@ -458,10 +512,10 @@ const aboutCluster: CanvasNode[] = [
     type: "property-groups",
     name: "Tools & skills",
     parentId: "about-skills",
-    x: ABOUT_X + 1160,
-    y: ABOUT_Y + 860,
-    width: 1580,
-    height: 480,
+    x: ABOUT_X + 580,
+    y: ABOUT_Y + 430,
+    width: 790,
+    height: 240,
     content: {
       sections: [
         { heading: "Tools", groups: about.tools },
@@ -471,12 +525,15 @@ const aboutCluster: CanvasNode[] = [
   },
 ];
 
-// ---- Contact ----
+// ---- Contact — directly beneath About, same column width ----
+
+const CONTACT_X = ABOUT_X;
+const CONTACT_Y = ABOUT_Y + 700 + 150;
 
 const contactBody = [
   contact.email,
   ...contact.socials.map((s) => s.label),
-  "Résumé (PDF)",
+  ...(contact.resumeUrl ? ["Résumé (PDF)"] : []),
 ].join("\n");
 
 const contactCluster: CanvasNode[] = [
@@ -484,10 +541,10 @@ const contactCluster: CanvasNode[] = [
     id: "contact",
     type: "frame",
     name: "Contact",
-    x: 5000,
-    y: 0,
-    width: 1440,
-    height: 900,
+    x: CONTACT_X,
+    y: CONTACT_Y,
+    width: COLUMN_WIDTH,
+    height: 700,
     content: { kind: "contact" },
   },
   {
@@ -495,10 +552,10 @@ const contactCluster: CanvasNode[] = [
     type: "text",
     name: "Heading",
     parentId: "contact",
-    x: 5080,
-    y: 120,
-    width: 1280,
-    height: 100,
+    x: CONTACT_X + 70,
+    y: CONTACT_Y + 90,
+    width: 1260,
+    height: 90,
     content: { text: "Let's talk", variant: "heading" },
   },
   {
@@ -506,10 +563,10 @@ const contactCluster: CanvasNode[] = [
     type: "text",
     name: "Contact details",
     parentId: "contact",
-    x: 5080,
-    y: 260,
-    width: 1280,
-    height: 500,
+    x: CONTACT_X + 70,
+    y: CONTACT_Y + 200,
+    width: 1260,
+    height: 400,
     content: { text: contactBody, variant: "body" },
   },
 ];

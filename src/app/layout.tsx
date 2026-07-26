@@ -65,7 +65,10 @@ const personJsonLd = {
   jobTitle: site.role,
   url: siteUrl,
   email: contact.email,
-  sameAs: contact.socials.map((social) => social.url),
+  // Omitted rather than emitted as [] — no real profile URLs yet.
+  ...(contact.socials.length > 0
+    ? { sameAs: contact.socials.map((social) => social.url) }
+    : {}),
 };
 
 export default function RootLayout({

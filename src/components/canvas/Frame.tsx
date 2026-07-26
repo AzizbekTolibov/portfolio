@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { CanvasNode } from "@/content/canvas";
 import { blurDataUrl } from "@/lib/canvas/blur";
+import { readableTextColor } from "@/lib/canvas/color";
 import { PlaceholderText } from "@/lib/canvas/placeholder-text";
 import type { LodBand } from "@/lib/canvas/types";
 
@@ -8,6 +9,9 @@ type FrameProps = {
   node: Extract<CanvasNode, { type: "frame" }>;
   childNodes: CanvasNode[];
   lodBand: LodBand;
+  /** False below ~40% zoom (see Canvas.tsx) — individual frame labels
+   * declutter out of OVERVIEW, leaving only group/project labels. */
+  showLabel: boolean;
   selected: boolean;
   hovered: boolean;
   onHoverChange: (hovered: boolean) => void;
@@ -28,6 +32,40 @@ const TEXT_VARIANT_CLASSES: Record<string, string> = {
     "text-mono-caption text-gray-600 font-mono tracking-[0.08em] uppercase",
 };
 
+function FlatFrame({
+  frame,
+  childNodes,
+}: {
+  frame: FrameProps["node"];
+  childNodes: CanvasNode[];
+}) {
+  const accentColor = frame.content?.accentColor;
+  if (!accentColor) return null;
+
+  // A cover's own title text child doubles as the large in-block label
+  // here, rather than duplicating the project title in a second place.
+  const isCover = frame.content?.kind === "project-cover";
+  const label = isCover
+    ? childNodes.find((c) => c.type === "text")?.content.text
+    : undefined;
+
+  return (
+    <div
+      className="absolute inset-0 flex items-center justify-center overflow-hidden px-6"
+      style={{ backgroundColor: accentColor }}
+    >
+      {label && (
+        <span
+          className="font-display text-center leading-tight"
+          style={{ fontSize: 72, color: readableTextColor(accentColor) }}
+        >
+          {label}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function FrameChildren({
   frame,
   childNodes,
@@ -37,7 +75,9 @@ function FrameChildren({
   childNodes: CanvasNode[];
   lodBand: LodBand;
 }) {
-  if (lodBand === "flat") return null;
+  if (lodBand === "flat") {
+    return <FlatFrame frame={frame} childNodes={childNodes} />;
+  }
 
   const image = childNodes.find((c) => c.type === "image");
 
@@ -156,6 +196,7 @@ export function Frame({
   node,
   childNodes,
   lodBand,
+  showLabel,
   selected,
   hovered,
   onHoverChange,
@@ -173,14 +214,25 @@ export function Frame({
       onMouseEnter={() => onHoverChange(true)}
       onMouseLeave={() => onHoverChange(false)}
     >
-      <div className="pointer-events-none absolute bottom-full left-0 mb-1.5 whitespace-nowrap">
-        <span
-          className={`inline-block origin-bottom-left font-mono text-[11px] ${selected ? "text-selection" : "text-off-white/50"}`}
-          style={{ transform: "scale(calc(1 / var(--canvas-scale, 1)))" }}
-        >
-          {node.name}
-        </span>
-      </div>
+      {showLabel && (
+        <div className="pointer-events-none absolute bottom-full left-0 whitespace-nowrap">
+          <span
+            className={`inline-block font-mono text-[11px] ${selected ? "text-selection" : "text-off-white/50"}`}
+            style={{
+              // scale, *then* translateY (order matters — see Group.tsx for
+              // the full derivation): this keeps the label a constant ~16
+              // screen px above the frame at every zoom level, instead of
+              // an offset that's in canvas units and collapses to nothing
+              // once zoomed out, which is what let labels collide before.
+              transform:
+                "scale(calc(1 / var(--canvas-scale, 1))) translateY(-16px)",
+              transformOrigin: "bottom left",
+            }}
+          >
+            {node.name}
+          </span>
+        </div>
+      )}
       <div
         className={`bg-off-white relative h-full w-full overflow-hidden ${
           selected
