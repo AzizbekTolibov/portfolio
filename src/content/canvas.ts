@@ -1,4 +1,5 @@
 import { about, contact } from "./about";
+import layoutOverridesData from "./data/layout.json";
 import { home } from "./home";
 import { autoGrid, autoGridSize } from "@/lib/canvas/auto-grid";
 import { projects } from "./projects";
@@ -15,7 +16,47 @@ import type { Project, PropertyGroup } from "./types";
  * src/lib/canvas/auto-grid.ts). Adding a 7th project, or a 5th photo to an
  * existing one, is a one-line content edit in content/projects.ts — no
  * coordinate ever needs touching.
+ *
+ * That auto-computed position is a *default*, not the only mode: any node
+ * can have its `x`/`y`/`width`/`height` hand-overridden via
+ * `data/layout.json` (see LayoutOverrides below), meant to be written by a
+ * future local content editor rather than hand-edited. autoGrid() still
+ * runs unconditionally and supplies the starting position for every node —
+ * overrides are applied last, on top of it — so a new project with no
+ * override yet still appears in a sensible grid slot instead of at (0, 0).
+ * Once a node has an override, it's no longer auto-placed; that's the cost
+ * free positioning pays for.
  */
+
+// pageId → nodeId → partial rect. Any field left out falls back to
+// whatever autoGrid()/getPageNodes() computed for that node by default.
+export type LayoutOverrides = {
+  [pageId: string]: {
+    [nodeId: string]: Partial<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }>;
+  };
+};
+
+const layoutOverrides = layoutOverridesData as LayoutOverrides;
+
+/** Applies this page's overrides (if any) over its auto-computed nodes —
+ * always the last step in getPageNodes(), so autoGrid()'s output is only
+ * ever a default, never a constraint an override has to work around. */
+function applyLayoutOverrides(
+  pageId: PageId,
+  nodes: CanvasNode[],
+): CanvasNode[] {
+  const pageOverrides = layoutOverrides[pageId];
+  if (!pageOverrides) return nodes;
+  return nodes.map((node) => {
+    const override = pageOverrides[node.id];
+    return override ? { ...node, ...override } : node;
+  });
+}
 
 export type CanvasNodeType = "frame" | "group" | "image" | "text";
 
@@ -644,7 +685,12 @@ function buildProjectPageNodes(project: Project): CanvasNode[] {
 // ==================================================================
 
 export function getPageNodes(pageId: PageId): CanvasNode[] {
-  if (pageId === "home") return buildHomeNodes();
-  const project = projects.find((p) => p.slug === pageId);
-  return project ? buildProjectPageNodes(project) : [];
+  let nodes: CanvasNode[];
+  if (pageId === "home") {
+    nodes = buildHomeNodes();
+  } else {
+    const project = projects.find((p) => p.slug === pageId);
+    nodes = project ? buildProjectPageNodes(project) : [];
+  }
+  return applyLayoutOverrides(pageId, nodes);
 }

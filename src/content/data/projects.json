@@ -1,0 +1,230 @@
+[
+  {
+    "slug": "auravest",
+    "title": "Auravest",
+    "year": "[YEAR]",
+    "description": "A calmer way to track personal finances, rebuilt around clarity over dashboards.",
+    "cover": {
+      "src": "/projects/auravest.svg",
+      "width": 1200,
+      "height": 1500,
+      "alt": "Auravest cover"
+    },
+    "images": [
+      {
+        "src": "/photos/auravest-1.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Auravest — photo 1"
+      },
+      {
+        "src": "/photos/auravest-2.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Auravest — photo 2"
+      },
+      {
+        "src": "/photos/auravest-3.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Auravest — photo 3"
+      },
+      {
+        "src": "/photos/auravest-4.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Auravest — photo 4"
+      },
+      {
+        "src": "/photos/auravest-5.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Auravest — photo 5"
+      }
+    ]
+  },
+  {
+    "slug": "north-clinic",
+    "title": "North Clinic",
+    "year": "[YEAR]",
+    "description": "Booking and records for a small clinic network, designed for patients who don't consider themselves 'good with apps.'",
+    "cover": {
+      "src": "/projects/north-clinic.svg",
+      "width": 1200,
+      "height": 1500,
+      "alt": "North Clinic cover"
+    },
+    "images": [
+      {
+        "src": "/photos/north-clinic-1.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "North Clinic — photo 1"
+      },
+      {
+        "src": "/photos/north-clinic-2.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "North Clinic — photo 2"
+      },
+      {
+        "src": "/photos/north-clinic-3.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "North Clinic — photo 3"
+      }
+    ]
+  },
+  {
+    "slug": "fieldnote",
+    "title": "Fieldnote",
+    "year": "[YEAR]",
+    "description": "A quieter note-taking tool for field researchers, built around structure instead of folders.",
+    "cover": {
+      "src": "/projects/fieldnote.svg",
+      "width": 1200,
+      "height": 1500,
+      "alt": "Fieldnote cover"
+    },
+    "images": [
+      {
+        "src": "/photos/fieldnote-1.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Fieldnote — photo 1"
+      },
+      {
+        "src": "/photos/fieldnote-2.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Fieldnote — photo 2"
+      },
+      {
+        "src": "/photos/fieldnote-3.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Fieldnote — photo 3"
+      },
+      {
+        "src": "/photos/fieldnote-4.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Fieldnote — photo 4"
+      }
+    ]
+  },
+  {
+    "slug": "loop-market",
+    "title": "Loop Market",
+    "year": "[YEAR]",
+    "description": "A component system for a marketplace's storefronts, so small sellers ship pages that don't look templated.",
+    "cover": {
+      "src": "/projects/loop-market.svg",
+      "width": 1200,
+      "height": 1500,
+      "alt": "Loop Market cover"
+    },
+    "images": [
+      {
+        "src": "/photos/loop-market-1.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Loop Market — photo 1"
+      },
+      {
+        "src": "/photos/loop-market-2.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Loop Market — photo 2"
+      },
+      {
+        "src": "/photos/loop-market-3.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Loop Market — photo 3"
+      },
+      {
+        "src": "/photos/loop-market-4.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Loop Market — photo 4"
+      },
+      {
+        "src": "/photos/loop-market-5.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Loop Market — photo 5"
+      },
+      {
+        "src": "/photos/loop-market-6.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Loop Market — photo 6"
+      }
+    ]
+  },
+  {
+    "slug": "harbor-analytics",
+    "title": "Harbor Analytics",
+    "year": "[YEAR]",
+    "description": "Making a dense analytics product legible again, one chart at a time.",
+    "cover": {
+      "src": "/projects/harbor-analytics.svg",
+      "width": 1200,
+      "height": 1500,
+      "alt": "Harbor Analytics cover"
+    },
+    "images": [
+      {
+        "src": "/photos/harbor-analytics-1.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Harbor Analytics — photo 1"
+      },
+      {
+        "src": "/photos/harbor-analytics-2.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Harbor Analytics — photo 2"
+      }
+    ]
+  },
+  {
+    "slug": "kindred",
+    "title": "Kindred",
+    "year": "[YEAR]",
+    "description": "Brand and product design for a family-messaging app, from wordmark to empty states.",
+    "cover": {
+      "src": "/projects/kindred.svg",
+      "width": 1200,
+      "height": 1500,
+      "alt": "Kindred cover"
+    },
+    "images": [
+      {
+        "src": "/photos/kindred-1.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Kindred — photo 1"
+      },
+      {
+        "src": "/photos/kindred-2.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Kindred — photo 2"
+      },
+      {
+        "src": "/photos/kindred-3.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Kindred — photo 3"
+      },
+      {
+        "src": "/photos/kindred-4.svg",
+        "width": 1600,
+        "height": 1000,
+        "alt": "Kindred — photo 4"
+      }
+    ]
+  }
+]

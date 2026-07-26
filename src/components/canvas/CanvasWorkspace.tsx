@@ -10,7 +10,11 @@ import {
   type PageId,
 } from "@/content/canvas";
 import { projects } from "@/content/projects";
-import { buildLayerTree, groupChildrenByParent } from "@/lib/canvas/tree";
+import {
+  buildLayerTree,
+  flattenFrameOrder,
+  groupChildrenByParent,
+} from "@/lib/canvas/tree";
 import { useCanvasEngine } from "@/lib/canvas/use-canvas-engine";
 import { useIntroSequence } from "@/lib/canvas/use-intro-sequence";
 import { useIsMobile } from "@/lib/canvas/use-is-mobile";
@@ -82,21 +86,13 @@ export function CanvasWorkspace({ initialPageId }: CanvasWorkspaceProps) {
   );
   const layerTree = useMemo(() => buildLayerTree(pageNodes), [pageNodes]);
 
-  // The FOCUSED-state stepping order for THIS page — its own frames, in
-  // the order content/canvas.ts generated them. Deliberately not a
-  // separately hand-authored list any more: a page's node order already
-  // is its natural viewing order, so there's nothing extra to keep in
-  // sync when a page's content changes.
-  const frameOrder = useMemo(
-    () =>
-      spatialNodes
-        .filter(
-          (n): n is Extract<SpatialNode, { type: "frame" }> =>
-            n.type === "frame",
-        )
-        .map((n) => n.id),
-    [spatialNodes],
-  );
+  // The FOCUSED-state stepping order for THIS page — derived from the same
+  // layerTree the semantic layer reads (see tree.ts's flattenFrameOrder),
+  // so the two can never disagree. Deliberately not a separately
+  // hand-authored list: a page's resolved position already is its natural
+  // viewing order, so there's nothing extra to keep in sync when a page's
+  // content (or a frame's overridden position) changes.
+  const frameOrder = useMemo(() => flattenFrameOrder(layerTree), [layerTree]);
 
   // Home's project tiles: clicking one navigates to that project's page
   // instead of the normal FOCUSED zoom-to-frame.
