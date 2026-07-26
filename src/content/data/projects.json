@@ -190,6 +190,32 @@
     ]
   },
   {
+    "slug": "untitled-project",
+    "title": "Test Project",
+    "year": "2026",
+    "description": "[DESCRIPTION — TO WRITE]",
+    "cover": {
+      "src": "/photos/untitled-project/bookkeeper-ai.png",
+      "width": 3200,
+      "height": 2400,
+      "alt": "Dashboard"
+    },
+    "images": [
+      {
+        "src": "/photos/untitled-project/bookkeeper-ai.png",
+        "width": 3200,
+        "height": 2400,
+        "alt": "Dashboard"
+      },
+      {
+        "src": "/photos/untitled-project/pulse.png",
+        "width": 3200,
+        "height": 2400,
+        "alt": "Dashboard"
+      }
+    ]
+  },
+  {
     "slug": "kindred",
     "title": "Kindred",
     "year": "[YEAR]",
@@ -226,18 +252,5 @@
         "alt": "Kindred — photo 4"
       }
     ]
-  },
-  {
-    "slug": "untitled-project",
-    "title": "[UNTITLED PROJECT]",
-    "year": "[YEAR]",
-    "description": "[DESCRIPTION — TO WRITE]",
-    "cover": {
-      "src": "/projects/new-project-placeholder.svg",
-      "width": 1200,
-      "height": 1500,
-      "alt": "[ALT TEXT — TO WRITE]"
-    },
-    "images": []
   }
 ]
