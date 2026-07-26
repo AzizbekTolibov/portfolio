@@ -5,7 +5,7 @@ import type { AboutContent, ContactContent } from "./types";
 export const about: AboutContent = aboutData;
 
 // contact stays a plain literal, not JSON — none of its fields are
-// editable this phase (see claude-code-prompt-phase3.md's table, which
+// editable this phase (see docs/prompts/claude-code-prompt-phase3.md's table, which
 // lists site/home/about's editable fields explicitly and omits contact
 // entirely). Moving it to JSON now would just be data-model churn with no
 // UI behind it yet.

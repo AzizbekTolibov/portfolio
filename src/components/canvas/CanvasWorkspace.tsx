@@ -48,6 +48,13 @@ const ProjectManager = dynamic(
   { ssr: false },
 );
 
+// /edit only, opened from the top bar's Publish button — never needed on
+// the public site.
+const PublishDialog = dynamic(
+  () => import("./PublishDialog").then((m) => m.PublishDialog),
+  { ssr: false },
+);
+
 type SpatialNode = Extract<CanvasNode, { type: "frame" | "group" }>;
 type NavNode = Extract<CanvasNode, { type: "frame" | "group" }>;
 
@@ -322,6 +329,7 @@ export function CanvasWorkspace({
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [layersSheetOpen, setLayersSheetOpen] = useState(false);
   const [projectManagerOpen, setProjectManagerOpen] = useState(false);
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
 
   useEffect(() => {
     setHandTool(tool === "hand");
@@ -644,6 +652,7 @@ export function CanvasWorkspace({
         onSave={save}
         onUndo={undo}
         onRedo={redo}
+        onOpenPublish={() => setPublishDialogOpen(true)}
       />
       <div className="flex min-h-0 flex-1">
         <LeftPanel
@@ -710,6 +719,9 @@ export function CanvasWorkspace({
           onReorderPhoto={reorderPhoto}
           onSetCoverPhoto={setCoverPhoto}
         />
+      )}
+      {publishDialogOpen && (
+        <PublishDialog onClose={() => setPublishDialogOpen(false)} />
       )}
     </div>
   );

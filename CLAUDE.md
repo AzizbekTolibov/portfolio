@@ -418,6 +418,8 @@ src/
                              independent notFound() guard, see Editor below
     api/edit/upload/route.ts photo upload (POST) + file delete (DELETE) —
                              own independent guard too
+    api/edit/publish/route.ts dry-run (GET) + commit-and-push (POST) — own
+                             independent guard too, see Publish below
     layout.tsx               Figma dark shell; root JSON-LD Person schema
     globals.css              Figma UI tokens + artboard-interior tokens
     icon.tsx, opengraph-image.tsx, twitter-image.tsx
@@ -426,7 +428,8 @@ src/
     canvas/                  Canvas (viewport), Frame, Group, TopBar,
                              LeftPanel, PagesPanel, LayerBrowser, RightPanel,
                              InspectorContent, EditInspector, ProjectManager,
-                             FrameCounter, CommandPalette, mobile equivalents…
+                             PublishDialog, FrameCounter, CommandPalette,
+                             mobile equivalents…
     semantic/                SemanticDocument, FrameLink — the parallel doc
   lib/
     canvas/
@@ -447,12 +450,26 @@ src/
   content/                   the content data model (see above)
 scripts/
   generate-project-photos.mjs   placeholder photo generator
-  verify-edit-guard.mjs         confirms GET /edit and POST /api/edit/save
-                                 both 404 against a real `next build`, see
-                                 Editor below
+  verify-edit-guard.mjs         confirms /edit and every /api/edit/* route
+                                 (save, upload, publish) 404 against a real
+                                 `next build`, see Editor below
+docs/
+  prompts/                      the claude-code-prompt-*.md spec files this
+                                 editor was built from, tracked here instead
+                                 of loose in the repo root — the publish
+                                 route reads real git status, and a build-up
+                                 of untracked root files would clutter its
+                                 dry-run diff
 ```
 
-### Editor (local-only, in progress)
+### Editor (local-only)
+
+Four build phases — layout drag/resize, content editing, project/photo CRUD,
+publish — are all complete. Free positioning (`layout.json`,
+`layout-maintenance.ts`, the drag/resize surface described below) is the
+committed model, not a provisional one still under evaluation; it's a
+permanent part of the content pipeline, and the publish flow (see below)
+exists partly to give it a real path to production.
 
 `/edit` (`src/app/edit/page.tsx`) reuses `CanvasWorkspace` with an
 `editMode` prop — same canvas, same navigation, but the right panel swaps
@@ -464,14 +481,16 @@ reachable in production**: the page calls `notFound()` whenever
 `next start` or Vercel — regardless of the shell's own env, so this only
 ever renders under `next dev`), backed by `robots.ts`'s
 `disallow: "/edit"` and `robots: { index: false }` on the page itself as
-defense in depth. `src/app/api/edit/save/route.ts` repeats the exact same
-`NODE_ENV` check independently — an API route is never prerendered away
-the way the page is, so it needs its own guard, not a shared one. `npm run
-verify:edit-guard` starts a real production server against the last
-`next build` output and asserts both `GET /edit` and
-`POST /api/edit/save` are 404 — run it after `npm run build` whenever
-either changes. Every future `/api/edit/*` route handler must repeat the
-same check; never rely on the page's guard alone.
+defense in depth. Every `src/app/api/edit/*/route.ts` (save, upload,
+publish) repeats the exact same `NODE_ENV` check independently — an API
+route is never prerendered away the way the page is, so each one needs its
+own guard, not a shared one. `npm run verify:edit-guard` starts a real
+production server against the last `next build` output and asserts `/edit`
+and all four `/api/edit/*` routes (`GET`/`POST save`, `POST`/`DELETE
+upload`, `GET`/`POST publish`) are 404 — run it after `npm run build`
+whenever any of them change. Every future `/api/edit/*` route handler must
+repeat the same check; never rely on the page's guard, or any other
+route's, alone.
 
 **Drag, resize, save** (the editor's second build phase): dragging a
 frame/group writes to Framer Motion values (`dragOffsetX`/`dragOffsetY` in
@@ -506,7 +525,7 @@ child position kept in sync by hand. Width/height never cascade this
 way; they only ever apply to the exact node they're set on.
 
 **Content editing** (the editor's third build phase — see
-`claude-code-prompt-phase3.md`): every field listed in the Content model
+`docs/prompts/claude-code-prompt-phase3.md`): every field listed in the Content model
 section above is editable through `EditInspector`, inspector-based rather
 than inline-on-canvas — `contentEditable` inside a scaled, translated,
 LOD-gated container fights caret positioning, IME input, and the fact
@@ -556,6 +575,43 @@ treatment as Phase 2; the rename step retries a few times on failure
 file another process (Turbopack's own dev-server watcher, reading the
 file to hot-reload it) has open — this was an observed, not just
 theoretical, failure while building this phase.
+
+### Publish
+
+`src/app/api/edit/publish/route.ts` (same independent `NODE_ENV` guard,
+covered by `verify:edit-guard`) is the last step in the pipeline: `GET` (or
+`POST ?dry=true`) runs `git status --porcelain` filtered to publishable
+paths and returns the current branch plus the changed-file list, so the UI
+can show exactly what's about to be committed before anything happens;
+`POST` stages, commits, and pushes.
+
+**The one rule most likely to get loosened later, so it's stated plainly:
+this route only ever stages `src/content/data/` and `public/photos/` —
+never `git add -A`, never `git add .`.** Those two paths are the entire
+surface area anything under `/edit` can write to, so they're the entire
+surface area publish is allowed to commit. It also refuses outright if
+anything **outside** those two paths is already staged when Publish is
+clicked — the realistic failure mode here is your own uncommitted source
+work sitting in the same tree you publish content from, and this route
+must never launder that into a content commit. It does not try to unstage
+anything on your behalf; it names the offending paths and stops. Every git
+invocation goes through `execFile` with an argument array, never a shell
+— the commit message is user input, so string interpolation into a shell
+command is never on the table. It never force-pushes, rebases, or amends;
+a rejected push (remote ahead) surfaces the real git error and stops,
+since resolving a diverged branch is a job for a person, not this route.
+
+The top bar's **Publish** button sits next to Save and is disabled while
+`dirty` is true — save first, always; two buttons that both sound like
+"make it real" is a trap this avoids by making the order physically
+impossible to get backwards. Clicking it opens `PublishDialog`, which dry-
+runs on mount to show the real changed-file list and a commit-message
+field (defaulting to "Update portfolio content") before anything is
+touched. On success it shows the pushed commit's short SHA and a note that
+the deploy takes roughly a minute — deliberately **not** a fake progress
+bar for a build it has no way to observe. On failure it shows the raw git
+error verbatim, never paraphrased, since the actual text is what's needed
+to fix it.
 
 - **Accessibility contrast** — compute WCAG ratios, don't eyeball. On dark
   Figma chrome, UI text must clear AA against `#1E1E1E`/`#2C2C2C`; artboard
@@ -608,5 +664,7 @@ dev`/`tsc` won't catch it).
 - `npm run format` / `format:check` — Prettier
 - `node scripts/generate-project-photos.mjs` — regenerate placeholder photos
   after editing photo counts in `content/data/projects.json`
-- `npm run verify:edit-guard` — confirms `/edit` 404s against the last
-  `npm run build` output; run after touching `src/app/edit/` or its guards
+- `npm run verify:edit-guard` — confirms `/edit` and every `/api/edit/*`
+  route (save, upload, publish) 404 against the last `npm run build`
+  output; run after touching `src/app/edit/`, any `/api/edit/*` route, or
+  their guards

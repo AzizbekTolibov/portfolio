@@ -10,7 +10,7 @@ const DATA_DIR = path.join(process.cwd(), "src", "content", "data");
 
 // One shared save endpoint for every editable data file, rather than one
 // route per file — a single guard surface to keep correct, not five
-// (see claude-code-prompt-phase3.md). The client only ever sends the
+// (see docs/prompts/claude-code-prompt-phase3.md). The client only ever sends the
 // files that actually changed since the last save (see
 // use-edit-content.ts's save()).
 const FILE_PATHS: Record<string, string> = {

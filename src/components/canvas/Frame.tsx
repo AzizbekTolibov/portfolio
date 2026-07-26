@@ -252,7 +252,7 @@ function FrameChildren({
 }
 
 // ---- Resize handles (/edit only, leaf frames only — see the addendum in
-// claude-code-prompt-phase2.md: a group's bounds stay derived from its
+// docs/prompts/claude-code-prompt-phase2.md: a group's bounds stay derived from its
 // children, so only frames ever get resize handles). ----
 
 type ResizeHandlePos = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";

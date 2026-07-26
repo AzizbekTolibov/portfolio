@@ -43,6 +43,10 @@ type TopBarProps = {
   onSave?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
+  /** Opens the publish confirmation dialog — see PublishDialog. Disabled
+   * while `dirty` is true: save first, always, never publish stale
+   * unsaved edits alongside a commit. */
+  onOpenPublish?: () => void;
 };
 
 const ZOOM_PRESETS = [50, 100, 200];
@@ -210,6 +214,7 @@ export function TopBar({
   onSave,
   onUndo,
   onRedo,
+  onOpenPublish,
 }: TopBarProps) {
   return (
     <header className="bg-panel border-off-white/10 relative z-20 flex h-12 shrink-0 items-center border-b px-3">
@@ -339,6 +344,21 @@ export function TopBar({
               )}
               {saving ? "Saving…" : dirty ? "Save" : "Saved"}
             </button>
+            {onOpenPublish && (
+              <button
+                type="button"
+                onClick={onOpenPublish}
+                disabled={dirty || saving}
+                title={
+                  dirty
+                    ? "Save your changes before publishing"
+                    : "Commit and push content changes"
+                }
+                className="border-off-white/20 text-off-white/80 hover:border-off-white/40 hover:text-off-white rounded border px-3 py-1 text-[11px] font-medium disabled:opacity-40"
+              >
+                Publish
+              </button>
+            )}
           </div>
         )}
         <button

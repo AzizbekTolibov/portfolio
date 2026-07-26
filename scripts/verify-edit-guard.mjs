@@ -119,6 +119,33 @@ try {
       "verify-edit-guard: OK — DELETE /api/edit/upload returned 404.",
     );
   }
+
+  const publishGetRes = await fetch(
+    `http://localhost:${PORT}/api/edit/publish`,
+  );
+  if (publishGetRes.status !== 404) {
+    fail(
+      `GET /api/edit/publish returned ${publishGetRes.status}, expected 404 — the dry-run endpoint is reachable in a production build.`,
+    );
+  } else {
+    console.log("verify-edit-guard: OK — GET /api/edit/publish returned 404.");
+  }
+
+  const publishPostRes = await fetch(
+    `http://localhost:${PORT}/api/edit/publish`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "test" }),
+    },
+  );
+  if (publishPostRes.status !== 404) {
+    fail(
+      `POST /api/edit/publish returned ${publishPostRes.status}, expected 404 — it would commit and push in a production build.`,
+    );
+  } else {
+    console.log("verify-edit-guard: OK — POST /api/edit/publish returned 404.");
+  }
 } catch (err) {
   fail(String(err));
 } finally {

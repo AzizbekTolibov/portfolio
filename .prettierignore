@@ -3,4 +3,4 @@ node_modules
 out
 build
 package-lock.json
-portfolio-claude-code-prompts.md
+docs/prompts/portfolio-claude-code-prompts.md

@@ -5,7 +5,7 @@
 // not hardcoded. Re-run after editing `counts`:
 // `node scripts/generate-project-photos.mjs`.
 //
-// Vestigial as of Phase 3 (see claude-code-prompt-phase3.md): /edit now
+// Vestigial as of Phase 3 (see docs/prompts/claude-code-prompt-phase3.md): /edit now
 // has a real upload path (src/app/api/edit/upload/route.ts) that writes
 // real photos with real intrinsic dimensions and required alt text. This
 // script still exists to regenerate the placeholder set the six original
