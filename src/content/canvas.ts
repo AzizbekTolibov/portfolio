@@ -563,7 +563,12 @@ const aboutCluster: CanvasNode[] = [
 
 const CONTACT_X = ABOUT_X;
 const CONTACT_Y = ABOUT_Y + 700 + GRID_GUTTER;
-const CONTACT_HEIGHT = 900;
+// Sized to its actual content: heading (~46) + gap + body copy (~144,
+// 3 short paragraphs) ending around y=344 from the frame's own origin,
+// plus a bottom margin that balances the 90px top margin before the
+// heading — a tall frame with a mostly-empty lower half reads as
+// unfinished, not deliberate.
+const CONTACT_HEIGHT = 450;
 
 const contactBody = [
   "The best work I've done started with someone who had a real problem and enough trust to figure it out together. If that's you, say hello.",
@@ -616,7 +621,7 @@ const contactCluster: CanvasNode[] = [
     x: CONTACT_X + 70,
     y: CONTACT_Y + 200,
     width: COLUMN_WIDTH - 140,
-    height: 600,
+    height: 200,
     content: { text: contactBody, variant: "body" },
   },
 ];

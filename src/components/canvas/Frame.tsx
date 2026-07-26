@@ -112,6 +112,12 @@ function FrameChildren({
           style={{
             left: image.x - frame.x,
             top: image.y - frame.y,
+            // Tailwind preflight's `img { max-width: 100%; height: auto }`
+            // otherwise overrides these to the placeholder SVG's own
+            // intrinsic aspect ratio, stretching it to fill (and overlap)
+            // whatever sits below it in the frame.
+            width: image.width,
+            height: image.height,
           }}
         />
       );
@@ -142,6 +148,8 @@ function FrameChildren({
               style={{
                 left: child.x - frame.x,
                 top: child.y - frame.y,
+                width: child.width,
+                height: child.height,
               }}
             />
           );
