@@ -32,6 +32,15 @@ type TopBarProps = {
    * not the public site, since the canvas itself renders identically in
    * both. */
   editMode?: boolean;
+  /** True whenever the in-memory layout differs from what's on disk —
+   * drives the dot next to Save and the beforeunload warning (see
+   * use-edit-layout.ts). */
+  dirty?: boolean;
+  saving?: boolean;
+  saveError?: string | null;
+  onSave?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
 };
 
 const ZOOM_PRESETS = [50, 100, 200];
@@ -192,6 +201,12 @@ export function TopBar({
   pageName,
   onGoHome,
   editMode = false,
+  dirty = false,
+  saving = false,
+  saveError = null,
+  onSave,
+  onUndo,
+  onRedo,
 }: TopBarProps) {
   return (
     <header className="bg-panel border-off-white/10 relative z-20 flex h-12 shrink-0 items-center border-b px-3">
@@ -268,6 +283,52 @@ export function TopBar({
       )}
 
       <div className="flex flex-1 items-center justify-end gap-3">
+        {editMode && onSave && (
+          <div className="flex shrink-0 items-center gap-2">
+            {saveError && (
+              <span className="text-[11px] text-red-400" title={saveError}>
+                Save failed
+              </span>
+            )}
+            {!isMobile && (
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={onUndo}
+                  aria-label="Undo (Cmd+Z)"
+                  title="Undo — Cmd+Z"
+                  className="text-off-white/60 hover:text-off-white flex h-7 w-7 items-center justify-center rounded hover:bg-white/5"
+                >
+                  ↶
+                </button>
+                <button
+                  type="button"
+                  onClick={onRedo}
+                  aria-label="Redo (Cmd+Shift+Z)"
+                  title="Redo — Cmd+Shift+Z"
+                  className="text-off-white/60 hover:text-off-white flex h-7 w-7 items-center justify-center rounded hover:bg-white/5"
+                >
+                  ↷
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={!dirty || saving}
+              className="bg-selection hover:bg-selection/90 flex items-center gap-1.5 rounded px-3 py-1 text-[11px] font-medium disabled:opacity-40"
+              style={{ color: "#000" }}
+            >
+              {dirty && (
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-current"
+                  aria-hidden="true"
+                />
+              )}
+              {saving ? "Saving…" : dirty ? "Save" : "Saved"}
+            </button>
+          </div>
+        )}
         <button
           type="button"
           onClick={onShare}

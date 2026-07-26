@@ -16,7 +16,9 @@ import {
   flattenFrameOrder,
   groupChildrenByParent,
 } from "@/lib/canvas/tree";
+import { rectIntersects } from "@/lib/canvas/geometry";
 import { useCanvasEngine } from "@/lib/canvas/use-canvas-engine";
+import { useEditLayout } from "@/lib/canvas/use-edit-layout";
 import { useIntroSequence } from "@/lib/canvas/use-intro-sequence";
 import { useIsMobile } from "@/lib/canvas/use-is-mobile";
 import { SemanticDocument } from "@/components/semantic/SemanticDocument";
@@ -81,7 +83,17 @@ export function CanvasWorkspace({
   const currentProject =
     pageId === "home" ? undefined : projects.find((p) => p.slug === pageId);
 
-  const pageNodes = useMemo(() => getPageNodes(pageId), [pageId]);
+  // Editor-only in-memory overrides (see use-edit-layout.ts) — inert when
+  // !editMode. getPageNodes falls back to layout.json's own file-based
+  // content when passed undefined, which is exactly what the public site
+  // needs and always gets.
+  const { overrides, commitPatch, dirty, saving, saveError, save, undo, redo } =
+    useEditLayout(editMode);
+
+  const pageNodes = useMemo(
+    () => getPageNodes(pageId, editMode ? overrides : undefined),
+    [pageId, editMode, overrides],
+  );
   const spatialNodes = useMemo(
     () =>
       pageNodes.filter(
@@ -92,6 +104,28 @@ export function CanvasWorkspace({
   const childrenByParent = useMemo(
     () => groupChildrenByParent(pageNodes),
     [pageNodes],
+  );
+
+  // /edit only: dragging a group must visually carry every recursive
+  // descendant with it (frames/groups, which are independent siblings —
+  // see Group.tsx's comment — plus whatever text/image children ride
+  // along for free inside each of those frames). Recomputed only when
+  // this page's node shape changes, not per drag.
+  const getAffectedIds = useCallback(
+    (nodeId: string): Set<string> => {
+      const ids = new Set<string>([nodeId]);
+      function visit(id: string) {
+        for (const child of childrenByParent.get(id) ?? []) {
+          if (!ids.has(child.id)) {
+            ids.add(child.id);
+            visit(child.id);
+          }
+        }
+      }
+      visit(nodeId);
+      return ids;
+    },
+    [childrenByParent],
   );
   const layerTree = useMemo(() => buildLayerTree(pageNodes), [pageNodes]);
   const groupLabelDepths = useMemo(
@@ -154,6 +188,29 @@ export function CanvasWorkspace({
     return true;
   }, [pageId, navigateToPage]);
 
+  const handleCommitMove = useCallback(
+    (nodeId: string, x: number, y: number) => {
+      commitPatch(pageId, nodeId, { x, y });
+    },
+    [pageId, commitPatch],
+  );
+
+  const handleCommitResize = useCallback(
+    (nodeId: string, x: number, y: number, width: number, height: number) => {
+      commitPatch(pageId, nodeId, { x, y, width, height });
+    },
+    [pageId, commitPatch],
+  );
+
+  const handleNudge = useCallback(
+    (nodeId: string, dx: number, dy: number) => {
+      const node = spatialNodes.find((n) => n.id === nodeId);
+      if (!node) return;
+      commitPatch(pageId, nodeId, { x: node.x + dx, y: node.y + dy });
+    },
+    [pageId, spatialNodes, commitPatch],
+  );
+
   const engine = useCanvasEngine(spatialNodes, undefined, {
     minZoom: engineMinZoom,
     maxZoom: engineMaxZoom,
@@ -162,6 +219,10 @@ export function CanvasWorkspace({
     pageLinks,
     onNavigatePage: navigateToPage,
     onEscapeUp,
+    editMode,
+    getAffectedIds,
+    onCommitMove: handleCommitMove,
+    onNudge: handleNudge,
   });
   const {
     containerRef,
@@ -179,6 +240,11 @@ export function CanvasWorkspace({
     zoomToFit,
     zoomToSelection,
     zoomToPercent,
+    draggingIds,
+    dragOffsetX,
+    dragOffsetY,
+    vGuideRef,
+    hGuideRef,
   } = engine;
 
   // The very first reveal (whatever page we booted on) is owned entirely
@@ -346,6 +412,33 @@ export function CanvasWorkspace({
       ) ?? null)
     : null;
 
+  const handleCommitField = useCallback(
+    (
+      patch: Partial<{ x: number; y: number; width: number; height: number }>,
+    ) => {
+      if (!selectedId) return;
+      commitPatch(pageId, selectedId, patch);
+    },
+    [pageId, selectedId, commitPatch],
+  );
+
+  // /edit only: a note, not a constraint (see the spec) — flags when the
+  // selection overlaps a SIBLING it wasn't already relate to, excluding
+  // its own ancestors (a node is expected to sit inside its parent group)
+  // and descendants (same reasoning, the other direction).
+  const overlapWarning = useMemo(() => {
+    if (!editMode || !selectedNode) return false;
+    const excluded = getAffectedIds(selectedNode.id);
+    let cur: SpatialNode | undefined = selectedNode;
+    while (cur?.parentId) {
+      excluded.add(cur.parentId);
+      cur = spatialNodes.find((n) => n.id === cur?.parentId);
+    }
+    return spatialNodes.some(
+      (n) => !excluded.has(n.id) && rectIntersects(selectedNode, n),
+    );
+  }, [editMode, selectedNode, spatialNodes, getAffectedIds]);
+
   // ---- mobile Prev/Next: steps through every real frame on this page ----
 
   const currentFrameIndex = useMemo(() => {
@@ -379,6 +472,13 @@ export function CanvasWorkspace({
       selectedId={selectedId}
       hoveredId={hoveredId}
       onHoverFrame={setHoveredId}
+      editMode={editMode}
+      draggingIds={draggingIds}
+      dragOffsetX={dragOffsetX}
+      dragOffsetY={dragOffsetY}
+      vGuideRef={vGuideRef}
+      hGuideRef={hGuideRef}
+      onCommitResize={handleCommitResize}
     />
   );
   const semanticDocEl = (
@@ -467,6 +567,12 @@ export function CanvasWorkspace({
         pageName={currentProject?.title}
         onGoHome={pageId !== "home" ? () => navigateToPage("home") : undefined}
         editMode={editMode}
+        dirty={dirty}
+        saving={saving}
+        saveError={saveError}
+        onSave={save}
+        onUndo={undo}
+        onRedo={redo}
       />
       <div className="flex min-h-0 flex-1">
         <LeftPanel
@@ -492,6 +598,8 @@ export function CanvasWorkspace({
           selectedNode={selectedNode}
           project={currentProject}
           editMode={editMode}
+          onCommitField={handleCommitField}
+          overlapWarning={overlapWarning}
         />
       </div>
       {paletteOpen && (

@@ -375,6 +375,8 @@ src/
     work/[slug]/page.tsx     static per-project SEO page (+ OG/Twitter images)
     edit/page.tsx            local-only editor shell — notFound() in
                              production, see Editor below
+    api/edit/save/route.ts   writes layout.json — own independent
+                             notFound() guard, see Editor below
     layout.tsx               Figma dark shell; root JSON-LD Person schema
     globals.css              Figma UI tokens + artboard-interior tokens
     icon.tsx, opengraph-image.tsx, twitter-image.tsx
@@ -387,10 +389,13 @@ src/
     semantic/                SemanticDocument, FrameLink — the parallel doc
   lib/
     canvas/
-      use-canvas-engine.ts   viewport + selection + pageLinks/onEscapeUp
+      use-canvas-engine.ts   viewport + selection + pageLinks/onEscapeUp +
+                             edit-mode drag/nudge (see Editor below)
+      use-edit-layout.ts     editor's in-memory overrides + undo/redo + save
       use-intro-sequence.ts  first-load loading screen + zoom-to-fit reveal
       auto-grid.ts           autoGrid()/autoGridSize() — the two grids' math
       label-transform.ts     capped counter-scale for constant-size labels
+      snapping.ts            edge/center snap math for drag alignment guides
       geometry.ts, tree.ts, color.ts, blur.ts, config.ts, types.ts
     motion.ts                durations/easings for Framer Motion
     site-url.ts              canonical URL resolver for metadata
@@ -398,8 +403,9 @@ src/
   content/                   the content data model (see above)
 scripts/
   generate-project-photos.mjs   placeholder photo generator
-  verify-edit-guard.mjs         confirms GET /edit 404s against a real
-                                 `next build`, see Editor below
+  verify-edit-guard.mjs         confirms GET /edit and POST /api/edit/save
+                                 both 404 against a real `next build`, see
+                                 Editor below
 ```
 
 ### Editor (local-only, in progress)
@@ -407,18 +413,52 @@ scripts/
 `/edit` (`src/app/edit/page.tsx`) reuses `CanvasWorkspace` with an
 `editMode` prop — same canvas, same navigation, but the right panel swaps
 `InspectorContent` for `EditInspector`, showing the selected frame/group's
-`x/y/w/h` (read-only so far — Phase 1 of the editor build; see
-`claude-code-prompt-editor.md`'s phases for what's next), and the top bar
-shows an "Edit mode" badge. It **must never be reachable in production**:
-the page calls `notFound()` whenever `process.env.NODE_ENV === "production"`
-(true for every real build — local `next start` or Vercel — regardless of
-the shell's own env, so this only ever renders under `next dev`), backed
-by `robots.ts`'s `disallow: "/edit"` and `robots: { index: false }` on the
-page itself as defense in depth. `npm run verify:edit-guard` starts a real
-production server against the last `next build` output and asserts
-`GET /edit` is a 404 — run it after `npm run build` whenever `/edit` (or
-its guard) changes. Every future `/api/edit/*` route handler must repeat
-the same `NODE_ENV` check independently; never rely on the page alone.
+`x/y/w/h` as editable fields (commit on Enter/blur), and the top bar shows
+an "Edit mode" badge plus a dirty indicator and Save. It **must never be
+reachable in production**: the page calls `notFound()` whenever
+`process.env.NODE_ENV === "production"` (true for every real build — local
+`next start` or Vercel — regardless of the shell's own env, so this only
+ever renders under `next dev`), backed by `robots.ts`'s
+`disallow: "/edit"` and `robots: { index: false }` on the page itself as
+defense in depth. `src/app/api/edit/save/route.ts` repeats the exact same
+`NODE_ENV` check independently — an API route is never prerendered away
+the way the page is, so it needs its own guard, not a shared one. `npm run
+verify:edit-guard` starts a real production server against the last
+`next build` output and asserts both `GET /edit` and
+`POST /api/edit/save` are 404 — run it after `npm run build` whenever
+either changes. Every future `/api/edit/*` route handler must repeat the
+same check; never rely on the page's guard alone.
+
+**Drag, resize, save** (the editor's second build phase): dragging a
+frame/group writes to Framer Motion values (`dragOffsetX`/`dragOffsetY` in
+`use-canvas-engine.ts`), never React state, so it stays exactly as
+re-render-free as pan/zoom already is; the position only becomes a real
+`LayoutOverrides` entry (see below) on release. Resize is leaf-frames-only
+— a group's bounds stay derived from its children (no single correct
+answer for "resize a container": scale children proportionally, or resize
+the box and leave them pinned?), so a selected group shows read-only w/h
+and no handles, while a selected frame gets 8 handles that preview via
+`scaleX`/`scaleY` + `transformOrigin` during the gesture and commit real
+`width`/`height` only on release. `Cmd+Z`/`Cmd+Shift+Z` undo/redo over a
+bounded array of whole-`LayoutOverrides` snapshots (`use-edit-layout.ts`);
+arrow keys nudge the selection (1 unit, 10 with Shift) instead of stepping
+`frameOrder` or panning, while edit mode is on.
+
+`LayoutOverrides` (`content/canvas.ts`) stores each touched node's own new
+absolute rect, but `applyLayoutOverrides` resolves it as a **delta**
+against that node's auto-computed default, and cascades that delta to
+every recursive descendant (composing with any delta a descendant has of
+its own) — chosen over writing a flattened absolute override onto every
+descendant at drag time, because every node in this canvas stores
+absolute coordinates (a tile's image is `x: tileX`; a group's children
+aren't relative to it at all), so a per-node-only override would move a
+dragged frame but strand its own text/image children, or move a group's
+own box but leave its child tiles behind. The delta-cascade approach
+keeps `layout.json` to one entry per node actually touched, however
+deep, and survives `content/canvas.ts` changing a frame's internal
+layout later — a flattened-descendant approach would need every stored
+child position kept in sync by hand. Width/height never cascade this
+way; they only ever apply to the exact node they're set on.
 
 ## Conventions still in force
 

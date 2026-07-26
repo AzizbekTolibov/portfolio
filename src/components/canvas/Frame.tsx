@@ -1,4 +1,6 @@
+import { motion, useMotionValue, type MotionValue } from "framer-motion";
 import Image from "next/image";
+import { useRef } from "react";
 import type { CanvasNode } from "@/content/canvas";
 import { blurDataUrl } from "@/lib/canvas/blur";
 import { readableTextColor } from "@/lib/canvas/color";
@@ -21,6 +23,25 @@ type FrameProps = {
   selected: boolean;
   hovered: boolean;
   onHoverChange: (hovered: boolean) => void;
+  /** /edit only. The shared drag-offset transform (see use-canvas-engine's
+   * dragOffsetX/Y) when this frame is one of the nodes currently being
+   * dragged; a plain 0 otherwise, so every other frame's motion.div stays
+   * inert. */
+  dragOffsetX?: MotionValue<number> | number;
+  dragOffsetY?: MotionValue<number> | number;
+  /** Renders the 8 resize handles and wires them to onCommitResize — only
+   * when selected, in edit mode (RightPanel/EditInspector shows w/h
+   * read-only and suppresses handles for groups; Frame is frames only, so
+   * no further gating is needed here beyond selected + editMode). */
+  editMode?: boolean;
+  scale?: MotionValue<number>;
+  onCommitResize?: (
+    id: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) => void;
 };
 
 const CORNER_CLASSES = [
@@ -230,6 +251,288 @@ function FrameChildren({
   );
 }
 
+// ---- Resize handles (/edit only, leaf frames only — see the addendum in
+// claude-code-prompt-phase2.md: a group's bounds stay derived from its
+// children, so only frames ever get resize handles). ----
+
+type ResizeHandlePos = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+const RESIZE_HANDLES: ResizeHandlePos[] = [
+  "nw",
+  "n",
+  "ne",
+  "e",
+  "se",
+  "s",
+  "sw",
+  "w",
+];
+const HANDLE_SIZE = 7;
+const MIN_SIZE = 20;
+
+const HANDLE_STYLE: Record<ResizeHandlePos, React.CSSProperties> = {
+  nw: { top: -HANDLE_SIZE / 2, left: -HANDLE_SIZE / 2, cursor: "nwse-resize" },
+  n: {
+    top: -HANDLE_SIZE / 2,
+    left: "50%",
+    marginLeft: -HANDLE_SIZE / 2,
+    cursor: "ns-resize",
+  },
+  ne: {
+    top: -HANDLE_SIZE / 2,
+    right: -HANDLE_SIZE / 2,
+    cursor: "nesw-resize",
+  },
+  e: {
+    top: "50%",
+    right: -HANDLE_SIZE / 2,
+    marginTop: -HANDLE_SIZE / 2,
+    cursor: "ew-resize",
+  },
+  se: {
+    bottom: -HANDLE_SIZE / 2,
+    right: -HANDLE_SIZE / 2,
+    cursor: "nwse-resize",
+  },
+  s: {
+    bottom: -HANDLE_SIZE / 2,
+    left: "50%",
+    marginLeft: -HANDLE_SIZE / 2,
+    cursor: "ns-resize",
+  },
+  sw: {
+    bottom: -HANDLE_SIZE / 2,
+    left: -HANDLE_SIZE / 2,
+    cursor: "nesw-resize",
+  },
+  w: {
+    top: "50%",
+    left: -HANDLE_SIZE / 2,
+    marginTop: -HANDLE_SIZE / 2,
+    cursor: "ew-resize",
+  },
+};
+// The corner/edge that stays visually fixed while this handle drags —
+// doubles as the handle's transform-origin (so scaleX/scaleY grows the
+// box from the right anchor, live, with no translate needed — see below)
+// and as the rule for which edge's commit needs a new x/y, not just a
+// new width/height.
+const RESIZE_ORIGIN: Record<ResizeHandlePos, string> = {
+  nw: "100% 100%",
+  n: "50% 100%",
+  ne: "0% 100%",
+  e: "0% 50%",
+  se: "0% 0%",
+  s: "50% 0%",
+  sw: "100% 0%",
+  w: "100% 50%",
+};
+const AFFECTS_WIDTH: Record<ResizeHandlePos, boolean> = {
+  nw: true,
+  n: false,
+  ne: true,
+  e: true,
+  se: true,
+  s: false,
+  sw: true,
+  w: true,
+};
+const AFFECTS_HEIGHT: Record<ResizeHandlePos, boolean> = {
+  nw: true,
+  n: true,
+  ne: true,
+  e: false,
+  se: true,
+  s: true,
+  sw: true,
+  w: false,
+};
+// Sign of the on-screen delta that GROWS this handle's dimension(s) —
+// e.g. dragging the "w" handle left (negative dx) grows width, so its
+// sign is -1.
+const WIDTH_SIGN: Record<ResizeHandlePos, number> = {
+  nw: -1,
+  n: 0,
+  ne: 1,
+  e: 1,
+  se: 1,
+  s: 0,
+  sw: -1,
+  w: -1,
+};
+const HEIGHT_SIGN: Record<ResizeHandlePos, number> = {
+  nw: -1,
+  n: -1,
+  ne: -1,
+  e: 0,
+  se: 1,
+  s: 1,
+  sw: 1,
+  w: 0,
+};
+const AFFECTS_LEFT: Record<ResizeHandlePos, boolean> = {
+  nw: true,
+  n: false,
+  ne: false,
+  e: false,
+  se: false,
+  s: false,
+  sw: true,
+  w: true,
+};
+const AFFECTS_TOP: Record<ResizeHandlePos, boolean> = {
+  nw: true,
+  n: true,
+  ne: true,
+  e: false,
+  se: false,
+  s: false,
+  sw: false,
+  w: false,
+};
+
+function ResizeHandles({
+  node,
+  scale,
+  onCommitResize,
+}: {
+  node: FrameProps["node"];
+  scale: MotionValue<number>;
+  onCommitResize: NonNullable<FrameProps["onCommitResize"]>;
+}) {
+  const resizeScaleX = useMotionValue(1);
+  const resizeScaleY = useMotionValue(1);
+  const originRef = useRef<string>("center");
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const activeRef = useRef<{
+    pos: ResizeHandlePos;
+    startClientX: number;
+    startClientY: number;
+    startRect: { x: number; y: number; width: number; height: number };
+  } | null>(null);
+
+  function computeSize(
+    pos: ResizeHandlePos,
+    startRect: { x: number; y: number; width: number; height: number },
+    dxCanvas: number,
+    dyCanvas: number,
+    shiftKey: boolean,
+  ) {
+    let width = AFFECTS_WIDTH[pos]
+      ? startRect.width + WIDTH_SIGN[pos] * dxCanvas
+      : startRect.width;
+    let height = AFFECTS_HEIGHT[pos]
+      ? startRect.height + HEIGHT_SIGN[pos] * dyCanvas
+      : startRect.height;
+    if (shiftKey && AFFECTS_WIDTH[pos] && AFFECTS_HEIGHT[pos]) {
+      const widthRatio = width / startRect.width;
+      const heightRatio = height / startRect.height;
+      const ratio =
+        Math.abs(widthRatio - 1) > Math.abs(heightRatio - 1)
+          ? widthRatio
+          : heightRatio;
+      width = startRect.width * ratio;
+      height = startRect.height * ratio;
+    }
+    width = Math.max(MIN_SIZE, width);
+    height = Math.max(MIN_SIZE, height);
+    return { width, height };
+  }
+
+  function onHandlePointerDown(
+    e: React.PointerEvent<HTMLDivElement>,
+    pos: ResizeHandlePos,
+  ) {
+    e.stopPropagation();
+    e.preventDefault();
+    (e.target as Element).setPointerCapture(e.pointerId);
+    activeRef.current = {
+      pos,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startRect: {
+        x: node.x,
+        y: node.y,
+        width: node.width,
+        height: node.height,
+      },
+    };
+    originRef.current = RESIZE_ORIGIN[pos];
+    if (wrapperRef.current) {
+      wrapperRef.current.style.transformOrigin = originRef.current;
+    }
+
+    function onMove(ev: PointerEvent) {
+      const active = activeRef.current;
+      if (!active) return;
+      const s = scale.get();
+      const dxCanvas = (ev.clientX - active.startClientX) / s;
+      const dyCanvas = (ev.clientY - active.startClientY) / s;
+      const { width, height } = computeSize(
+        active.pos,
+        active.startRect,
+        dxCanvas,
+        dyCanvas,
+        ev.shiftKey,
+      );
+      resizeScaleX.set(width / active.startRect.width);
+      resizeScaleY.set(height / active.startRect.height);
+    }
+
+    function onUp(ev: PointerEvent) {
+      const active = activeRef.current;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      if (!active) return;
+      const s = scale.get();
+      const dxCanvas = (ev.clientX - active.startClientX) / s;
+      const dyCanvas = (ev.clientY - active.startClientY) / s;
+      const { width, height } = computeSize(
+        active.pos,
+        active.startRect,
+        dxCanvas,
+        dyCanvas,
+        ev.shiftKey,
+      );
+      const x = AFFECTS_LEFT[active.pos]
+        ? active.startRect.x + active.startRect.width - width
+        : active.startRect.x;
+      const y = AFFECTS_TOP[active.pos]
+        ? active.startRect.y + active.startRect.height - height
+        : active.startRect.y;
+      resizeScaleX.set(1);
+      resizeScaleY.set(1);
+      activeRef.current = null;
+      onCommitResize(node.id, x, y, width, height);
+    }
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  return (
+    <motion.div
+      ref={wrapperRef}
+      className="absolute inset-0"
+      style={{ scaleX: resizeScaleX, scaleY: resizeScaleY }}
+    >
+      {RESIZE_HANDLES.map((pos) => (
+        <div
+          key={pos}
+          data-resize-handle="true"
+          onPointerDown={(e) => onHandlePointerDown(e, pos)}
+          className="border-selection bg-off-white absolute rounded-[1px] border"
+          style={{
+            width: HANDLE_SIZE,
+            height: HANDLE_SIZE,
+            ...HANDLE_STYLE[pos],
+            transform: "scale(calc(1 / var(--canvas-scale, 1)))",
+          }}
+        />
+      ))}
+    </motion.div>
+  );
+}
+
 /**
  * A single frame: absolutely positioned in canvas space, with a Figma-style
  * label above its top-left corner, an off-white "artboard" interior, and
@@ -243,6 +546,11 @@ export function Frame({
   selected,
   hovered,
   onHoverChange,
+  dragOffsetX = 0,
+  dragOffsetY = 0,
+  editMode = false,
+  scale,
+  onCommitResize,
 }: FrameProps) {
   // Home's project tiles are page-links — hover is the only affordance
   // signalling they navigate, so they get an extra lift + cover-image
@@ -257,18 +565,16 @@ export function Frame({
   const tileActive = isProjectTile && (hovered || selected);
 
   return (
-    <div
+    <motion.div
       data-frame-id={node.id}
-      className="absolute transition-transform duration-150 ease-out motion-reduce:transition-none"
+      className="absolute"
       style={{
         left: node.x,
         top: node.y,
         width: node.width,
         height: node.height,
-        // Inline, not a dynamic Tailwind class string — a template-
-        // literal class name here isn't statically analyzable, so it
-        // never made it into the generated CSS at all.
-        transform: tileActive ? "translateY(-4px)" : undefined,
+        x: dragOffsetX,
+        y: dragOffsetY,
       }}
       onMouseEnter={() => onHoverChange(true)}
       onMouseLeave={() => onHoverChange(false)}
@@ -287,13 +593,14 @@ export function Frame({
         </div>
       )}
       <div
-        className={`bg-off-white relative h-full w-full overflow-hidden ${
+        className={`bg-off-white relative h-full w-full overflow-hidden transition-transform duration-150 ease-out motion-reduce:transition-none ${
           selected
             ? "outline-selection outline-2 outline-offset-2"
             : hovered
               ? "outline-selection/50 outline-1 outline-offset-2"
               : ""
         }`}
+        style={{ transform: tileActive ? "translateY(-4px)" : undefined }}
       >
         <div
           className="h-full w-full transition-transform duration-150 ease-out motion-reduce:transition-none"
@@ -315,6 +622,13 @@ export function Frame({
             />
           ))}
       </div>
-    </div>
+      {editMode && selected && scale && onCommitResize && (
+        <ResizeHandles
+          node={node}
+          scale={scale}
+          onCommitResize={onCommitResize}
+        />
+      )}
+    </motion.div>
   );
 }

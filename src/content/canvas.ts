@@ -28,8 +28,35 @@ import type { Project, PropertyGroup } from "./types";
  * free positioning pays for.
  */
 
-// pageId → nodeId → partial rect. Any field left out falls back to
-// whatever autoGrid()/getPageNodes() computed for that node by default.
+// pageId → nodeId → the node's own new absolute rect (whatever the editor
+// last committed for it — a drag, a resize, or a typed inspector value).
+// Any field left out falls back to whatever autoGrid()/getPageNodes()
+// computed for that node by default.
+//
+// Every node in this canvas stores ABSOLUTE coordinates — children
+// included: a tile's image is `x: tileX`, its title `x: tileX + 40`; a
+// group's children aren't relative to the group at all. That means a
+// naive "apply this node's override, leave every other node alone" isn't
+// enough: dragging a project tile would move its own frame but strand its
+// cover image, title, and year behind; dragging "work-group" would move
+// the dashed box and leave all six tiles.
+//
+// Fix (chosen over flattening an absolute override onto every descendant
+// at write time): an override is resolved as a DELTA — the difference
+// between the stored value and that node's own auto-computed default —
+// and applyLayoutOverrides cascades that delta down through every
+// descendant recursively, composing with any delta the descendant has of
+// its own (so a tile nudged slightly after its whole group was dragged
+// gets both movements, not one replacing the other). One entry in
+// layout.json per node the user actually touched, however deep it is —
+// not ~4 duplicated entries per tile moved that would each go stale the
+// moment a frame's internal layout changes in this file. width/height
+// never cascade this way — only ever apply to the exact node they're set
+// on (see applyLayoutOverrides) — because there's no single correct
+// answer for "resize a container": scale children proportionally, or
+// resize the box and leave them pinned? Sidestepped entirely by only
+// ever writing width/height overrides for leaf frames, never groups (see
+// the resize UI, gated on node.type === "frame").
 export type LayoutOverrides = {
   [pageId: string]: {
     [nodeId: string]: Partial<{
@@ -43,18 +70,58 @@ export type LayoutOverrides = {
 
 const layoutOverrides = layoutOverridesData as LayoutOverrides;
 
+/** A snapshot of layout.json's current content, safe to hold in editor
+ * React state and mutate freely — getPageNodes() never touches this
+ * module's own `layoutOverrides`, which stays the file's last-built
+ * content for the public site. */
+export function getLayoutOverrides(): LayoutOverrides {
+  return structuredClone(layoutOverrides);
+}
+
 /** Applies this page's overrides (if any) over its auto-computed nodes —
  * always the last step in getPageNodes(), so autoGrid()'s output is only
- * ever a default, never a constraint an override has to work around. */
+ * ever a default, never a constraint an override has to work around.
+ * Position deltas cascade to every descendant (see LayoutOverrides above);
+ * width/height never do, and only ever apply to the exact node they're set
+ * on. */
 function applyLayoutOverrides(
   pageId: PageId,
   nodes: CanvasNode[],
+  overrides: LayoutOverrides,
 ): CanvasNode[] {
-  const pageOverrides = layoutOverrides[pageId];
+  const pageOverrides = overrides[pageId];
   if (!pageOverrides) return nodes;
+
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const deltaCache = new Map<string, { dx: number; dy: number }>();
+
+  // A node's total resolved delta is its own override's delta (if any)
+  // plus its parent's — walking up to the root composes every ancestor's
+  // move into this node's final position, not just the nearest one's.
+  function resolveDelta(node: CanvasNode): { dx: number; dy: number } {
+    const cached = deltaCache.get(node.id);
+    if (cached) return cached;
+    const override = pageOverrides[node.id];
+    const ownDx = override?.x !== undefined ? override.x - node.x : 0;
+    const ownDy = override?.y !== undefined ? override.y - node.y : 0;
+    const parent = node.parentId ? byId.get(node.parentId) : undefined;
+    const parentDelta = parent ? resolveDelta(parent) : { dx: 0, dy: 0 };
+    const delta = { dx: ownDx + parentDelta.dx, dy: ownDy + parentDelta.dy };
+    deltaCache.set(node.id, delta);
+    return delta;
+  }
+
   return nodes.map((node) => {
     const override = pageOverrides[node.id];
-    return override ? { ...node, ...override } : node;
+    const { dx, dy } = resolveDelta(node);
+    if (dx === 0 && dy === 0 && !override) return node;
+    return {
+      ...node,
+      x: node.x + dx,
+      y: node.y + dy,
+      ...(override?.width !== undefined ? { width: override.width } : {}),
+      ...(override?.height !== undefined ? { height: override.height } : {}),
+    };
   });
 }
 
@@ -724,7 +791,15 @@ function buildProjectPageNodes(project: Project): CanvasNode[] {
 
 // ==================================================================
 
-export function getPageNodes(pageId: PageId): CanvasNode[] {
+/** `overrides` defaults to layout.json's own (file-based) content — the
+ * public site never passes this. The editor passes its own in-memory,
+ * live-edited copy (see use-edit-layout.ts's getLayoutOverrides() above)
+ * so the canvas re-renders with unsaved changes as they're made, without
+ * writing to disk until a real save. */
+export function getPageNodes(
+  pageId: PageId,
+  overrides: LayoutOverrides = layoutOverrides,
+): CanvasNode[] {
   let nodes: CanvasNode[];
   if (pageId === "home") {
     nodes = buildHomeNodes();
@@ -732,5 +807,5 @@ export function getPageNodes(pageId: PageId): CanvasNode[] {
     const project = projects.find((p) => p.slug === pageId);
     nodes = project ? buildProjectPageNodes(project) : [];
   }
-  return applyLayoutOverrides(pageId, nodes);
+  return applyLayoutOverrides(pageId, nodes, overrides);
 }

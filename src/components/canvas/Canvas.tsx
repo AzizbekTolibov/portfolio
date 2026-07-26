@@ -33,6 +33,20 @@ type CanvasProps = {
   selectedId: string | null;
   hoveredId: string | null;
   onHoverFrame: (id: string | null) => void;
+  /** /edit only — see use-canvas-engine's identically-named return values. */
+  editMode?: boolean;
+  draggingIds?: Set<string> | null;
+  dragOffsetX?: MotionValue<number>;
+  dragOffsetY?: MotionValue<number>;
+  vGuideRef?: React.RefObject<HTMLDivElement | null>;
+  hGuideRef?: React.RefObject<HTMLDivElement | null>;
+  onCommitResize?: (
+    id: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) => void;
 };
 
 /**
@@ -56,6 +70,13 @@ export function Canvas({
   selectedId,
   hoveredId,
   onHoverFrame,
+  editMode = false,
+  draggingIds,
+  dragOffsetX,
+  dragOffsetY,
+  vGuideRef,
+  hGuideRef,
+  onCommitResize,
 }: CanvasProps) {
   const showFrameLabels = zoomPercent >= FRAME_LABEL_MIN_ZOOM_PERCENT;
   const gridBounds = useMemo(() => {
@@ -101,6 +122,7 @@ export function Canvas({
         />
 
         {visible.map((node) => {
+          const isDragging = draggingIds?.has(node.id) ?? false;
           if (node.type === "group") {
             return (
               <Group
@@ -110,6 +132,8 @@ export function Canvas({
                 selected={selectedId === node.id}
                 hovered={hoveredId === node.id}
                 onHoverChange={(h) => onHoverFrame(h ? node.id : null)}
+                dragOffsetX={isDragging ? dragOffsetX : 0}
+                dragOffsetY={isDragging ? dragOffsetY : 0}
               />
             );
           }
@@ -123,9 +147,33 @@ export function Canvas({
               selected={selectedId === node.id}
               hovered={hoveredId === node.id}
               onHoverChange={(h) => onHoverFrame(h ? node.id : null)}
+              dragOffsetX={isDragging ? dragOffsetX : 0}
+              dragOffsetY={isDragging ? dragOffsetY : 0}
+              editMode={editMode}
+              scale={scale}
+              onCommitResize={onCommitResize}
             />
           );
         })}
+
+        {editMode && (
+          // Alignment guides during a move — hidden by default; the engine
+          // toggles these directly via inline style (see updateGuides in
+          // use-canvas-engine.ts), never through React state, so a snap
+          // engaging/disengaging on every pointermove never re-renders
+          // anything. Selection blue, not the editorial accent — this is
+          // Figma chrome, not artboard content (see CLAUDE.md).
+          <>
+            <div
+              ref={vGuideRef}
+              className="bg-selection pointer-events-none absolute hidden w-px"
+            />
+            <div
+              ref={hGuideRef}
+              className="bg-selection pointer-events-none absolute hidden h-px"
+            />
+          </>
+        )}
       </motion.div>
     </div>
   );

@@ -1,3 +1,4 @@
+import { motion, type MotionValue } from "framer-motion";
 import type { CanvasNode } from "@/content/canvas";
 import { labelTransform } from "@/lib/canvas/label-transform";
 
@@ -28,6 +29,11 @@ type GroupProps = {
   selected: boolean;
   hovered: boolean;
   onHoverChange: (hovered: boolean) => void;
+  /** /edit only — see Frame.tsx's identical prop. A group never resizes
+   * (see the addendum: its bounds stay derived from its children), so it
+   * only ever needs the drag offset, never resize handles. */
+  dragOffsetX?: MotionValue<number> | number;
+  dragOffsetY?: MotionValue<number> | number;
 };
 
 /**
@@ -43,9 +49,11 @@ export function Group({
   selected,
   hovered,
   onHoverChange,
+  dragOffsetX = 0,
+  dragOffsetY = 0,
 }: GroupProps) {
   return (
-    <div
+    <motion.div
       data-frame-id={node.id}
       className="absolute"
       style={{
@@ -53,6 +61,8 @@ export function Group({
         top: node.y,
         width: node.width,
         height: node.height,
+        x: dragOffsetX,
+        y: dragOffsetY,
       }}
       onMouseEnter={() => onHoverChange(true)}
       onMouseLeave={() => onHoverChange(false)}
@@ -77,6 +87,6 @@ export function Group({
               : "border-off-white/15"
         }`}
       />
-    </div>
+    </motion.div>
   );
 }

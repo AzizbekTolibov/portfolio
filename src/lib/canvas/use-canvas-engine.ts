@@ -18,6 +18,7 @@ import {
   rectIntersects,
   zoomTowardPoint,
 } from "./geometry";
+import { computeSnap } from "./snapping";
 import type { CanvasRect, LodBand } from "./types";
 
 export const MIN_ZOOM = 0.05;
@@ -45,6 +46,14 @@ const ARROW_PAN_STEP = 60;
 const ZOOM_STEP_FACTOR = 1.2;
 const WHEEL_ZOOM_SENSITIVITY = 0.003;
 const CLICK_MOVE_THRESHOLD = 8;
+
+// ---- Edit mode: drag-to-move, keyboard nudge, snapping ----
+/** Canvas units — nudged 1 at a time, 10 with Shift (see the spec). */
+const NUDGE_STEP = 1;
+const NUDGE_STEP_SHIFT = 10;
+/** Screen px, so the snap "feel" stays constant regardless of zoom —
+ * converted to canvas units (dividing by scale) at comparison time. */
+const SNAP_THRESHOLD_PX = 6;
 
 // ---- FOCUSED-state frame stepping (scroll / arrows / Space) ----
 /** Below this, a wheel tick is noise (a light touch on the trackpad), not a
@@ -124,6 +133,28 @@ export type EngineOptions = {
    * (deselect + zoom-to-fit) is skipped — used to make Escape on a project
    * page go back to Home instead of just re-fitting the same page. */
   onEscapeUp?: () => boolean;
+  /** /edit only. Pointerdown on a frame/group drags it instead of panning
+   * (or, with no movement, just selects it — same as the public site);
+   * arrow keys nudge the selection instead of stepping frameOrder or
+   * panning. Page-link navigation on click is suppressed — the editor
+   * positions frames on the current page, it doesn't browse with them. */
+  editMode?: boolean;
+  /** nodeId -> that id plus every recursive frame/group descendant (not
+   * text/image — those ride along for free as real DOM children of
+   * whichever frame they belong to). Moving a group must visually carry
+   * its descendant frames/groups with it, since they're independent
+   * absolutely-positioned siblings, not DOM children of the group (see
+   * Group.tsx) — this is what makes that possible without touching React
+   * state per pointermove. */
+  getAffectedIds?: (nodeId: string) => Set<string>;
+  /** Called once, on release, with the moved node's final absolute
+   * canvas-space position (post-snap). Not called for a click that never
+   * actually dragged. */
+  onCommitMove?: (nodeId: string, x: number, y: number) => void;
+  /** Arrow-key nudge (1 unit, 10 with Shift) — called with the delta, not
+   * an absolute position, since the caller already knows the selected
+   * node's current rect. */
+  onNudge?: (nodeId: string, dx: number, dy: number) => void;
 };
 
 export function useCanvasEngine<T extends EngineNode>(
@@ -138,6 +169,10 @@ export function useCanvasEngine<T extends EngineNode>(
   const pageLinks = options?.pageLinks;
   const onNavigatePage = options?.onNavigatePage;
   const onEscapeUp = options?.onEscapeUp;
+  const editMode = options?.editMode ?? false;
+  const getAffectedIds = options?.getAffectedIds;
+  const onCommitMove = options?.onCommitMove;
+  const onNudge = options?.onNudge;
   const lodFlatMax = isMobile ? MOBILE_LOD_FLAT_MAX : LOD_FLAT_MAX;
   const lodThumbnailMax = isMobile
     ? MOBILE_LOD_THUMBNAIL_MAX
@@ -153,6 +188,26 @@ export function useCanvasEngine<T extends EngineNode>(
   const y = useMotionValue(0);
   const scale = useMotionValue(1);
   const transform = useMotionTemplate`translate3d(${x}px, ${y}px, 0) scale(${scale})`;
+
+  // Edit mode's drag-to-move: dragOffsetX/Y are the shared transform every
+  // currently-affected node's motion.div binds to (see Canvas.tsx) — a
+  // pointermove writes only these two motion values, never React state, so
+  // dragging stays exactly as re-render-free as pan/zoom already is.
+  // draggingIds (React state) changes only twice per gesture — drag start
+  // and drag end — never per pointermove.
+  const dragOffsetX = useMotionValue(0);
+  const dragOffsetY = useMotionValue(0);
+  const [draggingIds, setDraggingIds] = useState<Set<string> | null>(null);
+  const moveDragRef = useRef<{
+    nodeId: string;
+    startRect: CanvasRect;
+    affectedIds: Set<string>;
+  } | null>(null);
+  // Alignment guides during a move — direct DOM style writes (like
+  // updateCursor below), not React state, for the same reason: these can
+  // change on every pointermove and must not cost a re-render.
+  const vGuideRef = useRef<HTMLDivElement | null>(null);
+  const hGuideRef = useRef<HTMLDivElement | null>(null);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [handTool, setHandTool] = useState(false);
@@ -205,6 +260,47 @@ export function useCanvasEngine<T extends EngineNode>(
     } else {
       el.style.cursor = CURSOR_ARROW;
     }
+  }, []);
+
+  /** Writes the alignment-guide overlay elements directly (see vGuideRef/
+   * hGuideRef above) — imperative, not React state, so a snap changing on
+   * every pointermove during a drag never costs a re-render. */
+  const updateGuides = useCallback(
+    (
+      guides: {
+        orientation: "vertical" | "horizontal";
+        position: number;
+        from: number;
+        to: number;
+      }[],
+    ) => {
+      const v = guides.find((g) => g.orientation === "vertical");
+      const vEl = vGuideRef.current;
+      if (vEl) {
+        vEl.style.display = v ? "block" : "none";
+        if (v) {
+          vEl.style.left = `${v.position}px`;
+          vEl.style.top = `${v.from}px`;
+          vEl.style.height = `${v.to - v.from}px`;
+        }
+      }
+      const h = guides.find((g) => g.orientation === "horizontal");
+      const hEl = hGuideRef.current;
+      if (hEl) {
+        hEl.style.display = h ? "block" : "none";
+        if (h) {
+          hEl.style.top = `${h.position}px`;
+          hEl.style.left = `${h.from}px`;
+          hEl.style.width = `${h.to - h.from}px`;
+        }
+      }
+    },
+    [],
+  );
+
+  const hideGuides = useCallback(() => {
+    if (vGuideRef.current) vGuideRef.current.style.display = "none";
+    if (hGuideRef.current) hGuideRef.current.style.display = "none";
   }, []);
 
   // ---- imperative viewport controls ----
@@ -529,6 +625,53 @@ export function useCanvasEngine<T extends EngineNode>(
       const isMiddleMouse = e.button === 1;
       const explicitPan =
         isMiddleMouse || spacePressedRef.current || handToolRef.current;
+
+      // Edit mode: pointerdown on a frame/group (not a resize handle,
+      // which stops its own event before this ever sees it) drags that
+      // node instead of panning — Figma-style, select-and-move in one
+      // gesture. Space/hand-tool/middle-mouse still pan even in edit
+      // mode, same priority as the public site.
+      if (editMode && !explicitPan) {
+        const target = e.target as HTMLElement;
+        const onHandle = target.closest("[data-resize-handle]");
+        const frameEl = onHandle
+          ? null
+          : (target.closest("[data-frame-id]") as HTMLElement | null);
+        const frameId = frameEl?.dataset.frameId;
+        const frame = frameId ? frames.find((f) => f.id === frameId) : null;
+        if (frame) {
+          e.preventDefault();
+          stopAnimations();
+          const affectedIds = getAffectedIds?.(frame.id) ?? new Set([frame.id]);
+          moveDragRef.current = {
+            nodeId: frame.id,
+            startRect: {
+              x: frame.x,
+              y: frame.y,
+              width: frame.width,
+              height: frame.height,
+            },
+            affectedIds,
+          };
+          dragOffsetX.set(0);
+          dragOffsetY.set(0);
+          setDraggingIds(affectedIds);
+          setSelectedId(frame.id);
+          dragStateRef.current = {
+            active: false,
+            explicitPan: false,
+            pointerId: e.pointerId,
+            lastX: e.clientX,
+            lastY: e.clientY,
+            startX: e.clientX,
+            startY: e.clientY,
+            moved: false,
+          };
+          containerRef.current?.setPointerCapture(e.pointerId);
+          return;
+        }
+      }
+
       // A touch drag always pans — no hand tool needed — but isn't
       // "explicit": if it turns out not to have moved, it's a tap, and
       // taps still select (see onPointerUp).
@@ -579,6 +722,38 @@ export function useCanvasEngine<T extends EngineNode>(
         drag.moved = true;
         if (spacePressedRef.current) spaceUsedForPanRef.current = true;
       }
+
+      const moveDrag = moveDragRef.current;
+      if (moveDrag) {
+        const currentScale = scale.get();
+        const totalDx = (e.clientX - drag.startX) / currentScale;
+        const totalDy = (e.clientY - drag.startY) / currentScale;
+        const prospective: CanvasRect = {
+          x: moveDrag.startRect.x + totalDx,
+          y: moveDrag.startRect.y + totalDy,
+          width: moveDrag.startRect.width,
+          height: moveDrag.startRect.height,
+        };
+        let snapDx = 0;
+        let snapDy = 0;
+        if (!e.altKey) {
+          const others = frames.filter((f) => !moveDrag.affectedIds.has(f.id));
+          const snap = computeSnap(
+            prospective,
+            others,
+            SNAP_THRESHOLD_PX / currentScale,
+          );
+          snapDx = snap.dx;
+          snapDy = snap.dy;
+          updateGuides(snap.guides);
+        } else {
+          hideGuides();
+        }
+        dragOffsetX.set(totalDx + snapDx);
+        dragOffsetY.set(totalDy + snapDy);
+        return;
+      }
+
       if (drag.active) panBy(dx, dy);
     }
 
@@ -588,6 +763,24 @@ export function useCanvasEngine<T extends EngineNode>(
 
       const drag = dragStateRef.current;
       if (drag.pointerId === e.pointerId) {
+        const moveDrag = moveDragRef.current;
+        if (moveDrag) {
+          if (drag.moved) {
+            onCommitMove?.(
+              moveDrag.nodeId,
+              moveDrag.startRect.x + dragOffsetX.get(),
+              moveDrag.startRect.y + dragOffsetY.get(),
+            );
+          }
+          moveDragRef.current = null;
+          dragOffsetX.set(0);
+          dragOffsetY.set(0);
+          setDraggingIds(null);
+          hideGuides();
+          dragStateRef.current = { ...drag, active: false, pointerId: null };
+          updateCursor();
+          return;
+        }
         if (!drag.explicitPan && !drag.moved) {
           const target = e.target as HTMLElement;
           const frameEl = target.closest(
@@ -636,6 +829,14 @@ export function useCanvasEngine<T extends EngineNode>(
     zoomToFit,
     pageLinks,
     onNavigatePage,
+    frames,
+    editMode,
+    getAffectedIds,
+    onCommitMove,
+    dragOffsetX,
+    dragOffsetY,
+    updateGuides,
+    hideGuides,
   ]);
 
   // ---- keyboard ----
@@ -718,6 +919,25 @@ export function useCanvasEngine<T extends EngineNode>(
         return;
       }
 
+      // Edit mode: arrows nudge the selection (1 unit, 10 with Shift)
+      // instead of stepping frameOrder or panning — positioning is the
+      // whole point of edit mode, so this takes priority over both.
+      if (editMode && selectedId && onNudge) {
+        const nudgeMap: Record<string, [number, number]> = {
+          ArrowUp: [0, -1],
+          ArrowDown: [0, 1],
+          ArrowLeft: [-1, 0],
+          ArrowRight: [1, 0],
+        };
+        const dir = nudgeMap[e.key];
+        if (dir) {
+          e.preventDefault();
+          const magnitude = e.shiftKey ? NUDGE_STEP_SHIFT : NUDGE_STEP;
+          onNudge(selectedId, dir[0] * magnitude, dir[1] * magnitude);
+          return;
+        }
+      }
+
       // FOCUSED state: arrows step through the authored frame order instead
       // of panning (forward = right/down, back = left/up). OVERVIEW (or a
       // group selection, which isn't in frameOrder): the original free pan.
@@ -784,6 +1004,9 @@ export function useCanvasEngine<T extends EngineNode>(
     focusedIndex,
     stepFrameDebounced,
     onEscapeUp,
+    editMode,
+    selectedId,
+    onNudge,
   ]);
 
   // Keep cursor in sync when hand tool toggles via keyboard (not just
@@ -811,5 +1034,11 @@ export function useCanvasEngine<T extends EngineNode>(
     zoomToSelection,
     zoomToPercent,
     resetZoom,
+    // Edit mode only (see EngineOptions.editMode) — inert otherwise.
+    draggingIds,
+    dragOffsetX,
+    dragOffsetY,
+    vGuideRef,
+    hGuideRef,
   };
 }
