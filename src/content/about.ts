@@ -81,10 +81,13 @@ export const about: AboutContent = {
 
 export const contact: ContactContent = {
   email: "diyorbekismatullayev2004@gmail.com",
-  // LinkedIn/Dribbble/Instagram removed — real profile URLs not supplied
-  // yet, and a generic homepage link is worse than no link. Add real ones
-  // here when available.
-  socials: [],
-  // No file at public/resume.pdf yet — omitted rather than linking to a
-  // 404. Add resumeUrl back once the real PDF exists.
+  // Dribbble/Instagram still not supplied — omitted rather than linking to
+  // a generic homepage. Add real ones here when available.
+  socials: [
+    {
+      label: "LinkedIn",
+      url: "https://www.linkedin.com/in/azizbek-tolibov-741998201/",
+    },
+  ],
+  resumeUrl: "/resume.pdf",
 };

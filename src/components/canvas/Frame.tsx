@@ -2,8 +2,14 @@ import Image from "next/image";
 import type { CanvasNode } from "@/content/canvas";
 import { blurDataUrl } from "@/lib/canvas/blur";
 import { readableTextColor } from "@/lib/canvas/color";
+import { labelTransform } from "@/lib/canvas/label-transform";
 import { PlaceholderText } from "@/lib/canvas/placeholder-text";
 import type { LodBand } from "@/lib/canvas/types";
+
+/** How far above the frame's top edge the label sits (screen px, capped
+ * — see label-transform.ts). Smaller than a group's, so the two never
+ * collide when a group and its first child frame share an origin. */
+const FRAME_LABEL_OFFSET = -16;
 
 type FrameProps = {
   node: Extract<CanvasNode, { type: "frame" }>;
@@ -32,35 +38,44 @@ const TEXT_VARIANT_CLASSES: Record<string, string> = {
     "text-mono-caption text-gray-600 font-mono tracking-[0.08em] uppercase",
 };
 
-function FlatFrame({
-  frame,
-  childNodes,
-}: {
-  frame: FrameProps["node"];
-  childNodes: CanvasNode[];
-}) {
-  const accentColor = frame.content?.accentColor;
-  if (!accentColor) return null;
+/** Font sizes for the flat-LOD in-block label, by frame kind — Cover's
+ * name+role reads as the largest, most prominent text on the whole
+ * canvas; a project's own title is next; About/Contact's short labels
+ * are smaller supporting text. */
+const FLAT_LABEL_SIZE: Partial<Record<string, { primary: number; sub: number }>> = {
+  "site-cover": { primary: 96, sub: 34 },
+  "project-cover": { primary: 72, sub: 28 },
+};
+const FLAT_LABEL_SIZE_DEFAULT = { primary: 40, sub: 22 };
 
-  // A cover's own title text child doubles as the large in-block label
-  // here, rather than duplicating the project title in a second place.
-  const isCover = frame.content?.kind === "project-cover";
-  const label = isCover
-    ? childNodes.find((c) => c.type === "text")?.content.text
-    : undefined;
+function FlatFrame({ frame }: { frame: FrameProps["node"] }) {
+  const { accentColor, flatLabel, flatSublabel, kind } = frame.content ?? {};
+  if (!accentColor) return null;
+  const textColor = readableTextColor(accentColor);
+  const size = (kind && FLAT_LABEL_SIZE[kind]) || FLAT_LABEL_SIZE_DEFAULT;
 
   return (
     <div
       className="absolute inset-0 flex items-center justify-center overflow-hidden px-6"
       style={{ backgroundColor: accentColor }}
     >
-      {label && (
-        <span
-          className="font-display text-center leading-tight"
-          style={{ fontSize: 72, color: readableTextColor(accentColor) }}
-        >
-          {label}
-        </span>
+      {flatLabel && (
+        <div className="flex flex-col items-center gap-2 text-center">
+          <span
+            className="font-display leading-tight"
+            style={{ fontSize: size.primary, color: textColor }}
+          >
+            {flatLabel}
+          </span>
+          {flatSublabel && (
+            <span
+              className="font-sans leading-tight opacity-80"
+              style={{ fontSize: size.sub, color: textColor }}
+            >
+              {flatSublabel}
+            </span>
+          )}
+        </div>
       )}
     </div>
   );
@@ -76,7 +91,7 @@ function FrameChildren({
   lodBand: LodBand;
 }) {
   if (lodBand === "flat") {
-    return <FlatFrame frame={frame} childNodes={childNodes} />;
+    return <FlatFrame frame={frame} />;
   }
 
   const image = childNodes.find((c) => c.type === "image");
@@ -219,13 +234,7 @@ export function Frame({
           <span
             className={`inline-block font-mono text-[11px] ${selected ? "text-selection" : "text-off-white/50"}`}
             style={{
-              // scale, *then* translateY (order matters — see Group.tsx for
-              // the full derivation): this keeps the label a constant ~16
-              // screen px above the frame at every zoom level, instead of
-              // an offset that's in canvas units and collapses to nothing
-              // once zoomed out, which is what let labels collide before.
-              transform:
-                "scale(calc(1 / var(--canvas-scale, 1))) translateY(-16px)",
+              transform: labelTransform(FRAME_LABEL_OFFSET),
               transformOrigin: "bottom left",
             }}
           >

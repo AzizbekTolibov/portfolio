@@ -45,11 +45,14 @@ export type CanvasNode =
         projectSlug?: string;
         kind?: FrameKind;
         /** Shown as this frame's background at the low-detail ("flat")
-         * LOD, so each project cluster reads as a distinct block at
-         * OVERVIEW zoom instead of an identical blank rectangle. Full
-         * saturation on the project's Cover frame, a muted tint on its
-         * supporting frames. */
+         * LOD, so every frame reads as a distinct, legible block at
+         * OVERVIEW zoom instead of an identical blank rectangle. */
         accentColor?: string;
+        /** Large in-block text at flat LOD, when accentColor is set —
+         * explicit rather than inferred from child nodes, so it can't
+         * silently break if a frame's children ever get reordered. */
+        flatLabel?: string;
+        flatSublabel?: string;
       };
     })
   | (BaseNode & { type: "group"; content?: { projectSlug?: string } })
@@ -98,24 +101,57 @@ function sectionBody(project: Project, sectionId: CaseStudySectionId): string {
   return bodyBlock && bodyBlock.type === "body" ? bodyBlock.text : "";
 }
 
-// ---- Site cover — the nameplate, replaces a conventional hero ----
-// Deliberately NOT halved like everything else below — at 1440x900 it's
-// noticeably larger than a project's own 720x450 cover sub-frame, so it's
-// where the eye lands first in OVERVIEW, per CLAUDE.md's navigation model.
+// ---- Macro layout ----
+// One gutter constant for every top-level relationship (grid cluster-to-
+// cluster, and the gaps between Cover/About-Contact/the grid) — large
+// enough to guarantee a group label never reaches into whatever's above
+// it, even capped-and-zoomed-out at 10% (see Group.tsx/Frame.tsx for the
+// label-offset math this size is chosen to clear).
+const GRID_GUTTER = 300;
 
-const COVER_X = 1550;
+const CLUSTER_WIDTH = 2000;
+const CLUSTER_HEIGHT = 1300;
+const COLUMN_WIDTH = 1400;
+
+const GRID_WIDTH = CLUSTER_WIDTH * 2 + GRID_GUTTER;
+
+// ---- Site cover — the nameplate, replaces a conventional hero ----
+// Spans the full composition width (About/Contact column + gutter + the
+// grid) as a banner across the top, so every row shares the same left/
+// right edges — no region sits apart from the rest, per CLAUDE.md's
+// navigation model ("one intentional layout," not islands of content).
+
+const COVER_X = 0;
 const COVER_Y = 0;
+const COVER_WIDTH = COLUMN_WIDTH + GRID_GUTTER + GRID_WIDTH;
+const COVER_HEIGHT = 900;
 
 const siteCover: CanvasNode[] = [
+  {
+    id: "cover-group",
+    type: "group",
+    name: "Cover",
+    x: COVER_X,
+    y: COVER_Y,
+    width: COVER_WIDTH,
+    height: COVER_HEIGHT,
+  },
   {
     id: "cover",
     type: "frame",
     name: "Cover",
+    parentId: "cover-group",
     x: COVER_X,
     y: COVER_Y,
-    width: 1440,
-    height: 900,
-    content: { kind: "site-cover" },
+    width: COVER_WIDTH,
+    height: COVER_HEIGHT,
+    content: {
+      kind: "site-cover",
+      // Dark, not a project hue — the entry point, not a fifth project.
+      accentColor: "#0E0E0E",
+      flatLabel: site.name,
+      flatSublabel: site.role,
+    },
   },
   {
     id: "cover-name",
@@ -124,7 +160,7 @@ const siteCover: CanvasNode[] = [
     parentId: "cover",
     x: COVER_X + 80,
     y: COVER_Y + 280,
-    width: 1280,
+    width: COVER_WIDTH - 160,
     height: 140,
     content: { text: site.name, variant: "display" },
   },
@@ -135,7 +171,7 @@ const siteCover: CanvasNode[] = [
     parentId: "cover",
     x: COVER_X + 80,
     y: COVER_Y + 440,
-    width: 1280,
+    width: COVER_WIDTH - 160,
     height: 60,
     content: { text: site.role, variant: "heading" },
   },
@@ -146,7 +182,7 @@ const siteCover: CanvasNode[] = [
     parentId: "cover",
     x: COVER_X + 80,
     y: COVER_Y + 520,
-    width: 1280,
+    width: COVER_WIDTH - 160,
     height: 40,
     content: { text: site.location.display, variant: "caption" },
   },
@@ -157,37 +193,22 @@ const siteCover: CanvasNode[] = [
     parentId: "cover",
     x: COVER_X + 80,
     y: COVER_Y + 620,
-    width: 1280,
+    width: COVER_WIDTH - 160,
     height: 80,
     content: { text: home.heroHeadline, variant: "body" },
   },
 ];
 
-// ---- Project clusters — one per featured project, in a tight 2x2 grid ----
-// Half the linear size of every earlier draft of this layout: at full size,
-// four 4000x2600 clusters made the OVERVIEW zoom-to-fit land at 5-9%, with
-// content filling barely a third of the screen. Halving every internal
-// measurement (frames, gutters, image/text placement) preserves each
-// cluster's own composition exactly while shrinking the total canvas area
-// enough that zoom-to-fit lands in a legible ~15-25% range instead.
+// ---- Project clusters — one per featured project, in a tight 2x2 grid,
+// positioned to the right of the About/Contact column (below Cover). ----
 
-const CLUSTER_WIDTH = 2000;
-const CLUSTER_HEIGHT = 1300;
-const CLUSTER_GRID_GUTTER = 150;
+const GRID_X = COLUMN_WIDTH + GRID_GUTTER;
+const GRID_Y = COVER_Y + COVER_HEIGHT + GRID_GUTTER;
 const CLUSTER_POSITIONS = [
-  { x: COVER_X, y: COVER_Y + 900 + CLUSTER_GRID_GUTTER },
-  {
-    x: COVER_X + CLUSTER_WIDTH + CLUSTER_GRID_GUTTER,
-    y: COVER_Y + 900 + CLUSTER_GRID_GUTTER,
-  },
-  {
-    x: COVER_X,
-    y: COVER_Y + 900 + CLUSTER_GRID_GUTTER + CLUSTER_HEIGHT + CLUSTER_GRID_GUTTER,
-  },
-  {
-    x: COVER_X + CLUSTER_WIDTH + CLUSTER_GRID_GUTTER,
-    y: COVER_Y + 900 + CLUSTER_GRID_GUTTER + CLUSTER_HEIGHT + CLUSTER_GRID_GUTTER,
-  },
+  { x: GRID_X, y: GRID_Y },
+  { x: GRID_X + CLUSTER_WIDTH + GRID_GUTTER, y: GRID_Y },
+  { x: GRID_X, y: GRID_Y + CLUSTER_HEIGHT + GRID_GUTTER },
+  { x: GRID_X + CLUSTER_WIDTH + GRID_GUTTER, y: GRID_Y + CLUSTER_HEIGHT + GRID_GUTTER },
 ];
 const GUTTER = 100;
 
@@ -242,6 +263,7 @@ function projectCluster(project: Project, index: number): CanvasNode[] {
         projectSlug: project.slug,
         kind: "project-cover",
         accentColor: baseColor,
+        flatLabel: project.title,
       },
     },
     {
@@ -426,13 +448,13 @@ const workClusters = featuredProjects.flatMap((project, i) =>
   projectCluster(project, i),
 );
 
-// ---- About cluster — halved like the project clusters (see above), and
-// positioned as a column with Contact directly below it, instead of
-// leaving Contact orphaned on the far side of the canvas. ----
+// ---- About — a column beside the grid, directly under Cover ----
 
 const ABOUT_X = 0;
-const ABOUT_Y = 0;
-const COLUMN_WIDTH = 1400;
+const ABOUT_Y = COVER_Y + COVER_HEIGHT + GRID_GUTTER;
+// A dark neutral, distinct from both Cover's near-black and the four
+// bright project accents — the "personal info" cluster's own identity.
+const NEUTRAL_ACCENT = "#2C2A25";
 
 const aboutCluster: CanvasNode[] = [
   {
@@ -453,7 +475,11 @@ const aboutCluster: CanvasNode[] = [
     y: ABOUT_Y,
     width: 450,
     height: 700,
-    content: { kind: "about-portrait" },
+    content: {
+      kind: "about-portrait",
+      accentColor: NEUTRAL_ACCENT,
+      flatLabel: "Portrait",
+    },
   },
   {
     id: "about-portrait-image",
@@ -479,7 +505,11 @@ const aboutCluster: CanvasNode[] = [
     y: ABOUT_Y,
     width: 850,
     height: 300,
-    content: { kind: "about-bio" },
+    content: {
+      kind: "about-bio",
+      accentColor: NEUTRAL_ACCENT,
+      flatLabel: "Bio",
+    },
   },
   {
     id: "about-bio-text",
@@ -505,7 +535,11 @@ const aboutCluster: CanvasNode[] = [
     y: ABOUT_Y + 400,
     width: 850,
     height: 300,
-    content: { kind: "about-skills" },
+    content: {
+      kind: "about-skills",
+      accentColor: NEUTRAL_ACCENT,
+      flatLabel: "Tools & Skills",
+    },
   },
   {
     id: "about-skills-properties",
@@ -528,24 +562,40 @@ const aboutCluster: CanvasNode[] = [
 // ---- Contact — directly beneath About, same column width ----
 
 const CONTACT_X = ABOUT_X;
-const CONTACT_Y = ABOUT_Y + 700 + 150;
+const CONTACT_Y = ABOUT_Y + 700 + GRID_GUTTER;
+const CONTACT_HEIGHT = 900;
 
 const contactBody = [
+  "The best work I've done started with someone who had a real problem and enough trust to figure it out together. If that's you, say hello.",
   contact.email,
-  ...contact.socials.map((s) => s.label),
-  ...(contact.resumeUrl ? ["Résumé (PDF)"] : []),
-].join("\n");
+  "Freelance · open to projects · [CITY]",
+].join("\n\n");
 
 const contactCluster: CanvasNode[] = [
   {
-    id: "contact",
-    type: "frame",
+    id: "contact-group",
+    type: "group",
     name: "Contact",
     x: CONTACT_X,
     y: CONTACT_Y,
     width: COLUMN_WIDTH,
-    height: 700,
-    content: { kind: "contact" },
+    height: CONTACT_HEIGHT,
+  },
+  {
+    id: "contact",
+    type: "frame",
+    name: "Contact",
+    parentId: "contact-group",
+    x: CONTACT_X,
+    y: CONTACT_Y,
+    width: COLUMN_WIDTH,
+    height: CONTACT_HEIGHT,
+    content: {
+      kind: "contact",
+      accentColor: NEUTRAL_ACCENT,
+      flatLabel: "Contact",
+      flatSublabel: contact.email,
+    },
   },
   {
     id: "contact-heading",
@@ -554,9 +604,9 @@ const contactCluster: CanvasNode[] = [
     parentId: "contact",
     x: CONTACT_X + 70,
     y: CONTACT_Y + 90,
-    width: 1260,
+    width: COLUMN_WIDTH - 140,
     height: 90,
-    content: { text: "Let's talk", variant: "heading" },
+    content: { text: "Let's build something.", variant: "heading" },
   },
   {
     id: "contact-body",
@@ -565,8 +615,8 @@ const contactCluster: CanvasNode[] = [
     parentId: "contact",
     x: CONTACT_X + 70,
     y: CONTACT_Y + 200,
-    width: 1260,
-    height: 400,
+    width: COLUMN_WIDTH - 140,
+    height: 600,
     content: { text: contactBody, variant: "body" },
   },
 ];

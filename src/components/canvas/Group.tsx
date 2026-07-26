@@ -1,4 +1,13 @@
 import type { CanvasNode } from "@/content/canvas";
+import { labelTransform } from "@/lib/canvas/label-transform";
+
+/** How far above the group's top edge its label sits (screen px, capped
+ * — see label-transform.ts). Bigger than a frame's -16px: a group's own
+ * top-left often coincides exactly with its first child frame's top-left
+ * (e.g. "About" and "Portrait", or a project cluster and its Cover), so
+ * this has to clear both the frame label's own offset AND its rendered
+ * height before the two can ever be mistaken for one label. */
+const GROUP_LABEL_OFFSET = -40;
 
 type GroupProps = {
   node: Extract<CanvasNode, { type: "group" }>;
@@ -32,17 +41,7 @@ export function Group({ node, selected, hovered, onHoverChange }: GroupProps) {
         <span
           className={`inline-block font-mono text-[11px] font-medium ${selected ? "text-selection" : "text-off-white/60"}`}
           style={{
-            // Same screen-constant-offset trick as Frame.tsx's label (scale
-            // *then* translateY, in that order, is what makes the offset
-            // itself — not just the text size — immune to zoom). A group's
-            // own top-left often coincides exactly with its first child
-            // frame's top-left (e.g. "About" and "Portrait"), so this needs
-            // to clear BOTH the frame label's -16px offset AND its own
-            // ~16.5px rendered height (16 + 16.5 = 32.5) — -40px leaves a
-            // real margin instead of the ~0 (or negative) gap a -32px
-            // offset actually produced.
-            transform:
-              "scale(calc(1 / var(--canvas-scale, 1))) translateY(-40px)",
+            transform: labelTransform(GROUP_LABEL_OFFSET),
             transformOrigin: "bottom left",
           }}
         >

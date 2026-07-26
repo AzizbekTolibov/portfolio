@@ -147,12 +147,12 @@ export function SemanticDocument({
   onFocusFrame,
   onActivateFrame,
 }: Props) {
-  const coverEntry = layerTree.find((e) => e.node.id === "cover");
+  const coverEntry = layerTree.find((e) => e.node.id === "cover-group");
   const projectEntries = layerTree.filter(
     (e) => e.node.type === "group" && !!e.node.content?.projectSlug,
   );
   const aboutEntry = layerTree.find((e) => e.node.id === "about-group");
-  const contactEntry = layerTree.find((e) => e.node.id === "contact");
+  const contactEntry = layerTree.find((e) => e.node.id === "contact-group");
 
   const entryProps = {
     childrenByParent,
