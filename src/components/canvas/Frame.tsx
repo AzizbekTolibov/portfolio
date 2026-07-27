@@ -159,6 +159,13 @@ function FrameChildren({
             // whatever sits below it in the frame.
             width: image.width,
             height: image.height,
+            // The frame's box has its own fixed aspect ratio (autoGrid or a
+            // layout override), which an uploaded photo's real dimensions
+            // will only match by coincidence — without this, a mismatched
+            // source (e.g. a square upload in a portrait-shaped frame)
+            // stretches non-uniformly to fill the box instead of just
+            // cropping to it.
+            objectFit: "cover",
           }}
         />
       );
@@ -191,6 +198,10 @@ function FrameChildren({
                 top: child.y - frame.y,
                 width: child.width,
                 height: child.height,
+                // Same reasoning as the thumbnail-LOD image above — crop to
+                // the frame's own aspect ratio instead of stretching a
+                // source image that doesn't happen to match it.
+                objectFit: "cover",
               }}
             />
           );
