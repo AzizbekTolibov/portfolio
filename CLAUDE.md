@@ -386,7 +386,14 @@ both layers (and both SEO surfaces) project from:
   `photo` (the About portrait's image src — previously declared but never
   actually read; `canvas.ts` hardcoded a literal path instead, silently
   ignoring this field entirely, fixed in Phase 3 so editing it does
-  something), `availability`, `tools`, `skills`. `contact` (email,
+  something; originally edited as a bare path text field, which let it
+  point at a file outside `public/photos/` that Publish would never
+  actually commit — a real published-content-with-a-missing-image
+  incident, fixed after the fact by replacing the text field with a real
+  upload control in `EditInspector`'s `PortraitField`, writing through
+  `/api/edit/upload` with a fixed `about` slug so it's automatically
+  covered by Publish's allowlist from here on), `availability`, `tools`,
+  `skills`. `contact` (email,
   socials, résumé) stays a plain export in the same file, **not** moved to
   JSON — none of its fields are editable yet, so there's no editor UI
   behind it to justify the migration.

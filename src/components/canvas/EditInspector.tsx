@@ -149,6 +149,85 @@ function Divider() {
   return <div className="bg-off-white/10 mx-4 my-2 h-px" />;
 }
 
+// ---- portrait: a real upload control, not a bare path text field ----
+// A hand-typed path can point anywhere on disk, but Publish's allowlist
+// only ever stages public/photos/ (see api/edit/publish/route.ts) — a
+// path typed by hand can silently reference a file that never gets
+// published alongside it. Routing this through the same upload endpoint
+// project photos use keeps the two in sync by construction.
+
+async function uploadPortraitImage(
+  file: File,
+  alt: string,
+): Promise<{ src: string }> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("slug", "about");
+  form.append("alt", alt);
+  const res = await fetch("/api/edit/upload", { method: "POST", body: form });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error ?? `Upload failed (${res.status})`);
+  return data as { src: string };
+}
+
+function PortraitField({
+  about,
+  onCommitAbout,
+}: {
+  about: AboutContent;
+  onCommitAbout: (patch: Partial<AboutContent>) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  async function handleFile(file: File) {
+    setBusy(true);
+    setError(null);
+    try {
+      const { src } = await uploadPortraitImage(file, `${about.name} portrait`);
+      onCommitAbout({ photo: src });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="px-4 py-1.5">
+      <FieldLabel>Portrait image</FieldLabel>
+      <div className="flex items-center gap-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={about.photo}
+          alt=""
+          className="border-off-white/10 h-12 w-12 shrink-0 rounded border object-cover"
+        />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml"
+            disabled={busy}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFile(file);
+            }}
+            className="text-off-white/70 w-full text-[11px] disabled:opacity-40"
+          />
+          <span className="text-off-white/40 truncate font-mono text-[10px]">
+            {about.photo}
+          </span>
+        </div>
+      </div>
+      {busy && <p className="text-off-white/50 mt-1 text-[10px]">Uploading…</p>}
+      {error && <p className="mt-1 text-[10px] text-red-400">{error}</p>}
+    </div>
+  );
+}
+
 // ---- tools/skills: a list of labeled groups, each a newline-separated
 // item list — structured enough to stay valid data, simple enough not to
 // need a nested drag-reorder UI for something edited rarely. ----
@@ -568,12 +647,7 @@ export function EditInspector({
           value={about.availability}
           onCommit={(availability) => onCommitAbout({ availability })}
         />
-        <TextField
-          label="Portrait image path"
-          value={about.photo}
-          mono
-          onCommit={(photo) => onCommitAbout({ photo })}
-        />
+        <PortraitField about={about} onCommitAbout={onCommitAbout} />
         <AboutSkillsFields about={about} onCommitAbout={onCommitAbout} />
       </div>
     );
